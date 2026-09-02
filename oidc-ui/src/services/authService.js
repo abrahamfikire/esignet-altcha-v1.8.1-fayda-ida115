@@ -276,6 +276,24 @@ class authService {
     return localStorage.getItem(authorizeQueryParam) ?? '';
   };
 
+  /**
+   * OIDC client_id from the stored authorize query string.
+   * @returns {string|null}
+   */
+  getClientId = () => {
+    const encoded = this.getAuthorizeQueryParam();
+    if (!encoded) {
+      return null;
+    }
+    try {
+      return new URLSearchParams(Buffer.from(encoded, 'base64').toString()).get(
+        'client_id'
+      );
+    } catch {
+      return null;
+    }
+  };
+
   getClaimDetails = async () => {
     let response = await ApiService.get(CLAIM_DETAILS, {
       headers: {

@@ -14,12 +14,6 @@ jest.mock('../components/NavHeader', () => {
   return MockNavHeader;
 });
 
-jest.mock('../components/Footer', () => {
-  const MockFooter = () => <div>Footer</div>;
-  MockFooter.displayName = 'MockFooter';
-  return MockFooter;
-});
-
 jest.mock('../common/LoadingIndicator', () => {
   const MockLoadingIndicator = ({ message }) => <div>{message}</div>;
   MockLoadingIndicator.displayName = 'MockLoadingIndicator';
@@ -94,7 +88,6 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('NavHeader')).toBeInTheDocument();
       expect(screen.getByText('AppRouter')).toBeInTheDocument();
-      expect(screen.getByText('Footer')).toBeInTheDocument();
     });
   });
 

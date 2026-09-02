@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import { IMAGES } from '../constants/publicAssets';
 
 const ErrorBanner = ({
   showBanner,
@@ -36,7 +35,7 @@ const ErrorBanner = ({
         >
           <img
             className="h-2.5 w-2.5 hover:cursor-pointer"
-            src={IMAGES.CROSS_ICON}
+            src="images/cross_icon.svg"
             alt="close"
           />
         </button>

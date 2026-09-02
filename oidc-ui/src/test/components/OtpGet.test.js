@@ -37,25 +37,7 @@ jest.mock('../../components/LoginIDOptions', () => {
   };
 });
 
-// Critical: Forward events to trigger handleChange
-jest.mock('../../components/InputWithImage', () => {
-  return function MockInputWithImage({
-    handleChange,
-    blurChange,
-    value,
-    ...props
-  }) {
-    return (
-      <input
-        data-testid="mock-input-with-image"
-        onChange={(e) => handleChange?.(e)}
-        onBlur={(e) => blurChange?.(e)}
-        value={value ?? ''}
-        {...props}
-      />
-    );
-  };
-});
+// Critical: mock removed — OtpGet uses a plain input for FAN/FCN
 
 jest.mock('../../components/InputWithPrefix', () => {
   return function MockInputWithPrefix() {
@@ -110,7 +92,7 @@ describe('OtpGet', () => {
       await screen.findByTestId('mock-login-id-options')
     ).toBeInTheDocument();
     expect(
-      await screen.findByTestId('mock-input-with-image')
+      await screen.findByPlaceholderText('vid_placeholder')
     ).toBeInTheDocument();
     expect(screen.queryByTestId('lang-loading')).not.toBeInTheDocument();
   });
@@ -170,7 +152,7 @@ describe('OtpGet', () => {
     );
 
     // 2. Wait for input and type valid ID
-    const input = await screen.findByTestId('mock-input-with-image');
+    const input = await screen.findByPlaceholderText('vid_placeholder');
     await userEvent.type(input, '123456');
 
     // 3. Click button (even if disabled — we bypass)

@@ -2,24 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-*,
-body,
-input,
-textarea,
-button,
-select {
-  font-family:
-    'Montserrat',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    'Open Sans',
-    'Helvetica Neue',
-    sans-serif !important;
+body {
+  font-family: var(--font-family) !important;
 }
 
 .navbar-header {
@@ -45,10 +29,11 @@ select {
 }
 
 .login-list-box-style {
-  background: #ffffff 0% 0% no-repeat padding-box;
-  border: 1px solid var(--login-card-box-color);
+  background: #0F4356 0% 0% no-repeat padding-box;
+  border: 1px solid transparent;
   border-radius: 6px;
   opacity: 1;
+  color: #ffffff;
 }
 
 .login-list-box-style:hover {
@@ -66,6 +51,15 @@ select {
 
 .brand-only-logo {
   content: var(--brand-only-logo-url);
+}
+
+img.client-logo-size,
+img.brand-only-logo,
+img.brand-logo {
+  background: #ffffff;
+  border-radius: 50%;
+  object-fit: contain;
+  padding: 0.35rem;
 }
 
 .background-logo {
@@ -176,25 +170,42 @@ select {
   top: 2px;
 }
 
-[dir='ltr'] .toggle-no-outline::after {
+[dir="ltr"] .toggle-no-outline::after {
   left: 0px;
 }
 
-[dir='rtl'] .toggle-no-outline::after {
+[dir="rtl"] .toggle-no-outline::after {
   right: 0px;
 }
 
-[dir='ltr'] .toggle-outline::after {
+[dir="ltr"] .toggle-outline::after {
   left: 2px;
 }
 
-[dir='rtl'] .toggle-outline::after {
+[dir="rtl"] .toggle-outline::after {
   right: 2px;
+}
+
+[dir="rtl"] .kbi_form {
+  input[type="date"] {
+    display: flex;
+    justify-content: end;
+    background-position: right 0.75em center !important;
+    padding: 0.5em 2.25em 0.5em 1em !important;
+  }
+
+  .input_box {
+    padding: 0.5em 0.75em 0.5em 1em !important;
+  }
 }
 
 .footer-brand-logo {
   content: var(--footer-brand-logo-url);
   height: 25px;
+}
+
+.data-exchange {
+  content: var(--data-exchange-url);
 }
 
 .footer-container {
@@ -224,7 +235,7 @@ select {
 .signup-banner-hyperlink {
   font-weight: 700;
   color: var(--signup-banner-signup-url-color);
-  font-family: Roboto, sans-serif;
+  font-family: Roboto, sans-serif !important;
   letter-spacing: 0.5px;
 }
 
@@ -240,16 +251,6 @@ select {
   border-radius: var(--multipurpose-login-card-border-radius);
   background-color: var(--multipurpose-login-card-background-color);
   height: max-content;
-
-  .consent-timer-banner {
-    background-color: var(--consent-banner-background-color);
-    border-top-left-radius: var(--consent-banner-border-radius);
-    border-top-right-radius: var(--consent-banner-border-radius);
-
-    .consent-timer-text {
-      color: var(--consent-timer-text-color);
-    }
-  }
 }
 
 .section-background .top_left_bg_logo,
@@ -392,15 +393,35 @@ select {
   height: var(--otp-pin-input-height) !important;
   margin: var(--otp-pin-input-margin) !important;
   color: var(--otp-pin-input-color) !important;
+  -webkit-text-fill-color: var(--otp-pin-input-color) !important;
+  caret-color: var(--otp-pin-input-color) !important;
+  font-size: 1.35rem !important;
+  font-weight: 600 !important;
+  background: transparent !important;
   border: 0 !important;
   border-bottom: var(--otp-pin-input-border-bottom) !important;
 }
 
-input[type='checkbox'] {
+#totp_verify_input .pincode-input-text,
+.text-white .pincode-input-text {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  border-bottom-color: #ffffff !important;
+}
+
+button[id^='login_with_'] img.h-8 {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 4px;
+  object-fit: contain;
+}
+
+input[type="checkbox"] {
   accent-color: var(--checkbox-color);
 }
 
-input[type='checkbox']:hover {
+input[type="checkbox"]:hover {
   cursor: pointer;
 }
 
@@ -414,6 +435,15 @@ input[type='checkbox']:hover {
   font: var(--no-record-banner-font);
   color: var(--no-record-banner-color);
   padding: var(--no-record-banner-padding);
+}
+
+@media screen and (max-width: 768px) {
+  .section-background .top_left_bg_logo,
+  .section-background .top_right_bg_logo,
+  .section-background .bottom_right_bg_logo,
+  .section-background .bottom_left_bg_logo {
+    display: none;
+  }
 }
 
 .client-logo-size {
@@ -475,28 +505,26 @@ input {
   letter-spacing: 0px;
   color: #171a1c;
   opacity: 0.6;
-  font:
-    normal normal normal 16px/21px Roboto,
-    sans-serif;
+  font: normal normal normal 16px/21px Roboto, sans-serif;
 }
 
-[dir='ltr'] .input-box .prefix {
+[dir="ltr"] .input-box .prefix {
   padding-right: 10px;
   padding-left: 8px;
   border-right: 1px solid #707070;
 }
 
-[dir='rtl'] .input-box .prefix {
+[dir="rtl"] .input-box .prefix {
   padding-left: 10px;
   padding-right: 8px;
   border-left: 1px solid #707070;
 }
 
-[dir='ltr'] .prefix ~ input {
+[dir="ltr"] .prefix ~ input {
   padding-left: 10px;
 }
 
-[dir='rtl'] .prefix ~ input {
+[dir="rtl"] .prefix ~ input {
   padding-right: 10px;
 }
 
@@ -505,18 +533,16 @@ input {
   border: none;
   outline: none;
   padding-left: 0rem;
-  font:
-    normal normal normal 16px/20px Roboto,
-    sans-serif;
+  font: normal normal normal 16px/20px Roboto, sans-serif;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
 
-[dir='ltr'] .input-box input {
+[dir="ltr"] .input-box input {
   padding-left: 10px;
 }
 
-[dir='rtl'] .input-box input {
+[dir="rtl"] .input-box input {
   padding-right: 10px;
 }
 
@@ -538,11 +564,11 @@ input {
   font-weight: 500;
 }
 
-[dir='ltr'] .forgot-password-hyperlink {
+[dir="ltr"] .forgot-password-hyperlink {
   float: right;
 }
 
-[dir='rtl'] .forgot-password-hyperlink {
+[dir="rtl"] .forgot-password-hyperlink {
   float: left;
 }
 
@@ -565,13 +591,13 @@ input::-webkit-inner-spin-button {
 }
 
 /* Firefox */
-input[type='number'] {
+input[type="number"] {
   -moz-appearance: textfield;
 }
 
 [data-radix-popper-content-wrapper] {
   z-index: 50 !important;
-  font-family: Roboto, sans-serif;
+  font-family: Roboto, sans-serif !important;
 }
 
 .selected_login_id {
@@ -603,7 +629,7 @@ input[type='number'] {
 }
 
 #login-header {
-  font-family: 'Roboto', sans-serif;
+  font-family: "Roboto", sans-serif;
   letter-spacing: 0.25px;
   color: var(--login-header-text-color);
 }
@@ -617,7 +643,7 @@ input[type='number'] {
 }
 
 nav {
-  font-family: Roboto, sans-serif;
+  font-family: Roboto, sans-serif !important;
 }
 
 .selectedLang,
@@ -638,7 +664,7 @@ nav {
 
 .kbi_form {
   .form-group {
-    &[style*='flex'] {
+    &[style*="flex"] {
       gap: 0.5em;
     }
 
@@ -649,14 +675,6 @@ nav {
       label {
         margin-top: 0.25em;
         margin-bottom: 0.25em;
-      }
-
-      .calendar-icon {
-        top: 48% !important;
-      }
-
-      .real-date-input {
-        padding: 0 !important;
       }
     }
 
@@ -669,8 +687,8 @@ nav {
       align-items: center;
       width: 100%;
       margin: 0.25em 0 0.4em;
-      padding: 0.65em;
-      border: 1.5px solid #e5e7eb !important;
+      padding: 0.5em 2.5em 0.5em 0.75em;
+      border: 1.5px solid #e5e7eb;
       border-radius: 0.5em;
       background-color: #fff;
       overflow: hidden;
@@ -716,7 +734,7 @@ nav {
       align-items: center;
     }
 
-    input[type='date'] {
+    input[type="date"] {
       position: relative;
       width: 100%;
       padding: 0.5em 1em 0.5em 2.25em;
@@ -764,6 +782,7 @@ nav {
   .form-button {
     width: 100%;
     padding: 0.75em;
+    border: 1px solid var(--primary-button-border-color);
     border-radius: var(--primary-button-border-radius);
     font-weight: 500;
     color: var(--primary-button-color);
@@ -774,19 +793,6 @@ nav {
     div > svg {
       fill: white;
     }
-  }
-}
-
-.react-tooltip {
-  z-index: 9999 !important;
-}
-
-@media screen and (max-width: 768px) {
-  .section-background .top_left_bg_logo,
-  .section-background .top_right_bg_logo,
-  .section-background .bottom_right_bg_logo,
-  .section-background .bottom_left_bg_logo {
-    display: none;
   }
 }
 
@@ -821,9 +827,7 @@ nav {
 
 .error-page-header {
   color: #2c2c2c;
-  font:
-    normal normal bold 24px/29px Inter,
-    sans-serif;
+  font: normal normal bold 24px/29px Inter, sans-serif;
   text-align: center;
   letter-spacing: 0px;
   padding-top: 36px;
@@ -831,16 +835,14 @@ nav {
 
 .error-page-detail {
   color: #7b7b7b;
-  font:
-    normal normal normal 14px/20px Inter,
-    sans-serif;
+  font: normal normal normal 14px/20px Inter, sans-serif;
   text-align: center;
   letter-spacing: 0px;
   padding-top: 10px;
 }
 
-input[type='password']::-ms-reveal,
-input[type='password']::-ms-clear {
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
   display: none;
 }
 

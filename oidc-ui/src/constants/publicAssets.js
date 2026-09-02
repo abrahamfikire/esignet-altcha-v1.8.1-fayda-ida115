@@ -25,6 +25,10 @@ const IMAGES = {
   CHEVRON_DOWN: PUBLIC_URL + '/images/chevron_down.svg',
   ASTERISK_ICON: PUBLIC_URL + '/images/asterisk_icon.svg',
   BIO_ICON: PUBLIC_URL + '/images/bio_icon.svg',
+  FAYDAPASS_ICON: PUBLIC_URL + '/images/faydapass_icon.svg',
+  TOTP_ICON: PUBLIC_URL + '/images/totp_icon.png',
+  DATA_EXCHANGE: PUBLIC_URL + '/images/data-exchange.svg',
+  BACKGROUND_SVG: PUBLIC_URL + '/images/background.svg',
   FACE_CAPTURE: PUBLIC_URL + '/images/face_capture.png',
   FINGERPRINT_SCAN: PUBLIC_URL + '/images/fingerprint_scan.png',
   IRIS_CODE: PUBLIC_URL + '/images/iris_code.png',
@@ -66,7 +70,7 @@ const IMAGES = {
  */
 const CSS_IMAGE_VARIABLES = {
   '--brand-only-logo-url': PUBLIC_URL + '/logo.png',
-  '--brand-logo-url': PUBLIC_URL + '/images/brand_logo.png',
+  '--brand-logo-url': PUBLIC_URL + '/logo.png',
   '--background-logo-url': PUBLIC_URL + '/images/illustration_one.png',
   '--footer-brand-logo-url': PUBLIC_URL + '/images/footer_logo.png',
   '--top-left-bg-logo-url': PUBLIC_URL + '/images/top_left_bg_logo.svg',
@@ -74,6 +78,8 @@ const CSS_IMAGE_VARIABLES = {
   '--bottom-left-bg-logo-url': PUBLIC_URL + '/images/top_left_bg_logo.svg',
   '--top-right-bg-logo-url': PUBLIC_URL + '/images/top_left_bg_logo.svg',
   '--login-background-image': PUBLIC_URL + '/images/section-bg.png',
+  '--data-exchange-url': PUBLIC_URL + '/images/data-exchange.svg',
+  '--login-page-background-image': PUBLIC_URL + '/images/background.svg',
 };
 
 /**

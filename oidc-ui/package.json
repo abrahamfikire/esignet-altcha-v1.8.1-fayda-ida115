@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@agicash/qr-scanner": "^0.1.2",
     "@emotion/react": "^11.10.4",
     "@mosip/json-form-builder": "^0.1.1-beta.6",
     "@mosip/secure-biometric-interface-integrator": "^0.1.1-beta.0",
@@ -34,6 +35,9 @@
     "react-tooltip": "^5.7.5"
   },
   "scripts": {
+    "copy-qr-worker": "node scripts/copy-qr-scanner-worker.js",
+    "prestart": "npm run copy-qr-worker",
+    "prebuild": "npm run copy-qr-worker",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",

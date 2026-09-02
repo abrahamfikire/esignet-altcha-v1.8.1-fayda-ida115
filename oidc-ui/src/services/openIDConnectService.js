@@ -56,7 +56,7 @@ class openIDConnectService {
    * @returns configuration value of the given config key
    */
   getEsignetConfiguration = (configKey) => {
-    return this.oAuthDetails.configs[configKey];
+    return this.oAuthDetails?.configs?.[configKey];
   };
 
   /**

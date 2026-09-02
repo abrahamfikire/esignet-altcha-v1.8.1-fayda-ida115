@@ -1,0 +1,50 @@
+# VeriFayda local override — published UI + published artifactory images
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DOCKER_COMPOSE_SUBNET:-198.18.51.0/24}
+
+services:
+  artifactory:
+    image: amanijo/artifactory-server:staging-plugin-added2
+    ports:
+      - "${COMPOSE_BIND:-127.0.0.1}:${ARTIFACTORY_HOST_PORT:-18080}:8080"
+
+  esignet:
+    volumes:
+      - ../esignet-service/plugins/esignet-mock-plugin.jar:/home/mosip/esignet-mock-plugin.jar:ro
+      - ../esignet-service/src/main/resources/amr_acr_mapping.json:/home/mosip/amr_acr_mapping.json:ro
+      - ./verifayda-totp.properties:/home/mosip/config/verifayda-totp.properties:ro
+    environment:
+      - SPRING_CONFIG_ADDITIONAL_LOCATION=optional:file:/home/mosip/config/
+      - MOSIP_ESIGNET_AMR_ACR_MAPPING_FILE_URL=file:/home/mosip/amr_acr_mapping.json
+      - MOSIP_ESIGNET_AMR_ACR_MAPPING_FILE_PATH=file:/home/mosip/amr_acr_mapping.json
+
+  esignet-ui:
+    # Working VeriFayda UI (includes TOTP / VeriFayda Code)
+    image: amanijo/oidc-ui:v1.8.x-verifayda-latest
+    extra_hosts:
+      - "esignet:host-gateway"
+    depends_on:
+      - esignet
+      - artifactory
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./configure_start.sh:/home/mosip/configure_start.sh:ro
+      - ./oidc-ui/public/locales:/usr/share/nginx/html/locales:ro
+      - ./oidc-ui/public/theme:/usr/share/nginx/html/theme:ro
+      - ./oidc-ui/public/images:/verifayda-assets/images:ro
+      - ./oidc-ui/public/images/logo.png:/verifayda-assets/logo.png:ro
+      - ./oidc-ui/public/images/footer_logo.png:/verifayda-assets/footer_logo.png:ro
+    environment:
+      - container_user=mosip
+      - DEFAULT_TITLE=VeriFayda 2.0
+      - DEFAULT_ID_PROVIDER_NAME=VeriFayda 2.0
+      - DEFAULT_FEVICON=logo.png
+      - DEFAULT_LANG=en
+      - DEFAULT_THEME=default
+      - DEFAULT_WELLKNOWN=%5B%7B%22name%22%3A%22OpenID%20Configuration%22%2C%22value%22%3A%22%2F.well-known%2Fopenid-configuration%22%7D%2C%7B%22name%22%3A%22Jwks%20Json%22%2C%22value%22%3A%22%2F.well-known%2Fjwks.json%22%7D%2C%7B%22name%22%3A%22Authorization%20Server%22%2C%22value%22%3A%22%2F.well-known%2Foauth-authorization-server%22%7D%5D
+      # Leave artifactory zip URLs empty. Fetching those zips overwrote VeriFayda
+      # locales/logos with MOSIP eSignet assets and duplicated TOTP labels.

@@ -12,7 +12,7 @@ import {
 } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import L1Biometrics from '../../components/L1Biometrics';
-import { init } from 'secure-biometric-interface-integrator';
+import { init } from '@mosip/secure-biometric-interface-integrator';
 import langConfigService from '../../services/langConfigService';
 
 // ✅ Mock i18n
@@ -29,9 +29,18 @@ jest.mock('react-i18next', () => ({
 }));
 
 // ✅ Mock secure biometric
-jest.mock('secure-biometric-interface-integrator', () => ({
+jest.mock('@mosip/secure-biometric-interface-integrator', () => ({
   init: jest.fn(),
   propChange: jest.fn(),
+}));
+
+jest.mock('../../services/sbiLivenessPreload', () => ({
+  isErshaClientId: jest.fn(() => false),
+  preloadSbiLivenessAssets: jest.fn(),
+}));
+
+jest.mock('../../services/deviceUtils', () => ({
+  shouldSkipLocalSbiDiscovery: jest.fn(() => false),
 }));
 
 // ✅ Mock subcomponents
@@ -151,6 +160,8 @@ const mockAuthService = {
     .fn()
     .mockResolvedValue({ response: {}, errors: [] }),
   buildRedirectParams: jest.fn(() => '?mock=params'),
+  buildRedirectParamsV2: jest.fn(() => '?mock=params'),
+  getClientId: jest.fn(() => null),
 };
 
 const mockOpenIDConnectService = {

@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import LoadingIndicator from './common/LoadingIndicator';
 import { LoadingStates as states } from './constants/states';
-import Footer from './components/Footer';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HttpError } from './services/api.service';
 import { AppRouter } from './app/AppRouter';
@@ -37,15 +36,12 @@ function App() {
     },
   });
 
-  //Loading rtlLangs and initializing CSS variables
   useEffect(() => {
-    // Initialize CSS variables early for proper image paths
-    try {
-      initializeCSSVariables();
-    } catch (error) {
-      console.error('Failed to initialize CSS variables:', error);
-    }
+    initializeCSSVariables();
+  }, []);
 
+  //Loading rtlLangs
+  useEffect(() => {
     const loadLanguages = async () => {
       try {
         const response = await langConfigService.getLocaleConfiguration();
@@ -73,6 +69,8 @@ function App() {
         setStatusLoading(states.LOADED);
       } catch (error) {
         console.error('Failed to load rtl languages!', error);
+        setLangOptions([{ label: 'English', value: 'en' }]);
+        setStatusLoading(states.LOADED);
       }
     };
 
@@ -147,14 +145,15 @@ function App() {
       break;
     case states.LOADED:
       el = (
-        <div dir={dir} className="h-screen">
-          <NavHeader langOptions={langOptions} />
+        <div dir={dir} className="h-dvh max-h-dvh overflow-hidden">
           <QueryClientProvider client={queryClient}>
-            <BrowserRouter>
-              <AppRouter />
-            </BrowserRouter>
+            <div className="oidc-app-shell w-full flex flex-col">
+              <NavHeader langOptions={langOptions} />
+              <BrowserRouter>
+                <AppRouter />
+              </BrowserRouter>
+            </div>
           </QueryClientProvider>
-          <Footer />
         </div>
       );
       break;

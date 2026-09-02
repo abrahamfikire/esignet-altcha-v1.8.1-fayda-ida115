@@ -1,21 +1,17 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { IMAGES } from '../constants/publicAssets';
 
 export default function PageNotFoundPage({ i18nKeyPrefix = 'errors' }) {
   const { t } = useTranslation('translation', { keyPrefix: i18nKeyPrefix });
 
   return (
-    <div
-      className="multipurpose-login-card w-full m-0 sm:shadow py-24 sm:mx-16 sm:my-8 sm:min-h-[80vh] section-background flex flex-col justify-center items-center"
-      style={{ boxShadow: '0px 2px 5px #0000001A' }}
-    >
+    <div className="w-full py-24 rounded-[6px] bg-white/10 backdrop-blur-2xl border border-white/30 ring-1 ring-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.12)] flex flex-col justify-center items-center px-5">
       <img
         className="mx-auto my-0"
-        src={IMAGES.UNDER_CONSTRUCTION}
+        src="images/under_construction.svg"
         alt="page_not_found"
       />
-      <div className="error-page-header">{t('page_not_exist')}</div>
+      <div className="error-page-header !text-white">{t('page_not_exist')}</div>
     </div>
   );
 }

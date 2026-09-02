@@ -8,9 +8,12 @@ import { LoadingStates, LoadingStates as states } from '../constants/states';
 import FormAction from './FormAction';
 import langConfigService from './../services/langConfigService';
 import ModalPopup from '../common/ModalPopup';
-import { IMAGES } from '../constants/publicAssets';
 import configService from '../services/configService';
 import redirectOnError from '../helpers/redirectOnError';
+
+// Survive React.StrictMode remounts: useRef resets on remount and would
+// double-submit auth-code (first succeeds / evicts txn; second → invalid_transaction).
+const authCodeSubmittedTxns = new Set();
 
 export default function Consent({
   authService,
@@ -20,6 +23,16 @@ export default function Consent({
   i18nKeyPrefix = 'consent',
 }) {
   const { t } = useTranslation('translation', { keyPrefix: i18nKeyPrefix });
+
+  const translateClaim = (item) => {
+    if (!item) return '';
+    // Backend may send dotted keys like "consent.biometrics_raw".
+    // With keyPrefix "consent", strip that prefix so i18n resolves correctly.
+    const key = item.startsWith('consent.')
+      ? item.slice('consent.'.length)
+      : item;
+    return t(key);
+  };
 
   const post_AuthCode = authService.post_AuthCode;
 
@@ -298,6 +311,11 @@ export default function Consent({
   const submitConsent = async (acceptedClaims, permittedAuthorizeScopes) => {
     try {
       let transactionId = openIDConnectService.getTransactionId();
+      if (authCodeSubmittedTxns.has(transactionId)) {
+        return;
+      }
+      authCodeSubmittedTxns.add(transactionId);
+
       let issuer = openIDConnectService.getEsignetConfiguration(
         configurationKeys.issuer
       );
@@ -382,7 +400,7 @@ export default function Consent({
 
   // close the modalpopup and redirect to Relying Party landing page
   const handleDiscontinue = () => {
-    redirectOnError('access_denied', t('access_denied'));
+    redirectOnError('consent_request_rejected', t('consent_request_rejected'));
   };
 
   // buttons for the modalpopup footer
@@ -414,7 +432,7 @@ export default function Consent({
       <>
         {cancelPopup && (
           <ModalPopup
-            alertIcon={IMAGES.WARNING_MESSAGE_ICON}
+            alertIcon="images/warning_message_icon.svg"
             alertClassname="flex flex-shrink-0 items-center justify-center rounded-t-md p-4 mt-4"
             header={t('cancelpopup.confirm_header')}
             headerClassname="relative text-center text-dark font-semibold text-xl text-[#2B3840] mt-4"
@@ -424,35 +442,43 @@ export default function Consent({
             footerClassname="flex flex-shrink-0 flex-wrap items-center justify-center rounded-b-md p-4 mb-5 mt-3"
           />
         )}
-        <div className="multipurpose-login-card shadow w-full md:w-3/6 md:z-10 lg:max-w-sm m-0 md:m-auto">
-          <div className="consent-timer-banner rounded-t-sm top-0 left-0 right-0 p-2">
+        <div className="text-white w-full rounded-[6px] bg-white/10 backdrop-blur-2xl border border-white/30 ring-1 ring-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.12)] flex flex-col p-5">
+          <div className="rounded-t-lg left-0 right-0 p-2 top-0 w-full">
             {timeLeft && timeLeft > 0 && status !== LoadingStates.LOADING && (
               <div className="text-center">
-                <p className="text-[#4E4E4E] font-semibold">
+                <p className="font-semibold !text-white">
                   {t('transaction_timeout_msg')}
                 </p>
-                <p className="font-bold consent-timer-text">
+                <p className="font-bold text-[#DE7A24]">
                   {formatTime(timeLeft)}{' '}
                 </p>
               </div>
             )}
           </div>
-          <div className="flex flex-col flex-grow lg:px-5 md:px-4 sm:px-3 px-3 pb-4">
+          <div className="w-full flex flex-col flex-grow lg:px-5 md:px-4 sm:px-3 px-3 pb-4">
             <div className="w-full flex mt-9 justify-center items-center">
               <img
-                className="object-contain client-logo-size client-logo-shadow rounded-[25px] border-[0.1px] border-white"
+                className="object-contain client-logo-size"
                 src={clientLogoPath}
                 alt={clientName}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/logo.png?v=20260901h';
+                }}
               />
-              <span className="flex mx-5 alternate-arrow"></span>
+              <img
+                className="object-contain data-exchange w-10 aspect-video"
+                alt={t('logo_alt')}
+              />
               <img
                 className="object-contain brand-only-logo client-logo-size"
+                src="/logo.png?v=20260901h"
                 alt={t('logo_alt')}
               />
             </div>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="flex justify-center mt-[30px]">
-                <b>
+                <b className="!text-white text-center">
                   {t('consent_request_msg', {
                     clientName: clientName,
                   })}
@@ -463,23 +489,24 @@ export default function Consent({
                   claimScope?.values?.length > 0 && (
                     <div key={claimScope.label}>
                       <div className="grid sm:grid-cols-2 grid-cols-2 sm:gap-4">
-                        <div className="flex sm:justify-start w-max">
-                          <div className="font-semibold">
+                        <div className="flex w-full">
+                          <div className="font-semibold !text-white flex items-center gap-1">
                             {t(claimScope.label)}
                             <button
                               id={claimScope.tooltip}
-                              className="ml-1 text-sky-600 text-xl info-icon-button"
+                              className="ml-1 text-white text-xl info-icon-button"
                               data-tooltip-content={t(claimScope.tooltip)}
                               data-tooltip-place="top"
                               onClick={(e) => {
                                 e.preventDefault();
                               }}
+                              role="tooltip"
                             >
                               &#9432;
                             </button>
                             <ReactTooltip
                               anchorId={claimScope.tooltip}
-                              className="md:w-3/6 lg:max-w-sm m-0 md:m-auto"
+                              className="md:w-3/6 lg:max-w-sm m-0 md:m-auto !text-white"
                             />
                           </div>
                         </div>
@@ -494,30 +521,20 @@ export default function Consent({
 
                       <div className="divide-y">
                         {claimScope?.values?.map((item) => (
-                          <ul
-                            key={item}
-                            className="list-disc marker:text-[#B9B9B9] ml-4 mr-4"
-                          >
-                            <li>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="flex justify-start relative items-center mb-1 mt-1">
-                                  <label
-                                    className={`text-sm ${
-                                      claimScope?.label ===
-                                        'voluntary_claims' &&
-                                      voluntaryClaims.includes(item)
-                                        ? 'text-[#8D8D8DD5]'
-                                        : 'text-[#01070DD5]'
-                                    }`}
-                                  >
-                                    {t(item)}
+                          <ul key={item} className="text-white ml-4 mr-4">
+                            <li className="flex items-start gap-2">
+                              <span className="mt-1 text-white">›</span>
+                              <div className="flex gap-2 gap-4 justify-between w-full">
+                                <div className="flex justify-start relative items-center mb-1 mt-1 w-fit">
+                                  <label className="text-sm text-white">
+                                    {translateClaim(item)}
                                   </label>
                                 </div>
-                                <div className="flex justify-end">
+                                <div className="flex w-fit">
                                   {claimScope?.required && (
                                     <label
                                       htmlFor={item}
-                                      className="inline-flex text-sm relative items-center mb-1 mt-1 text-gray-400"
+                                      className="inline-flex text-sm relative items-center mb-1 mt-1 text-white/80"
                                     >
                                       {t('required')}
                                     </label>

@@ -89,6 +89,25 @@ const otpFields = [
   },
 ];
 
+const totpFields = [
+  {
+    labelText: 'vid_label_text',
+    labelFor: 'Mosip vid',
+    id: 'mosip-vid',
+    name: 'vid',
+    type: 'text',
+    autoComplete: 'vid',
+    isRequired: true,
+    placeholder: 'vid_placeholder',
+    infoIcon: config['otp_info_icon'],
+    errorCode: 'IDA-MLC-004',
+    prefix: '',
+    postfix: '',
+    maxLength: '',
+    regex: '',
+  },
+];
+
 const bioLoginFields = {
   inputFields: [
     {
@@ -287,6 +306,10 @@ const generateFieldData = (fieldName, openIDConnectService) => {
       fieldData = otpFields;
       Object.assign(fieldData[0], individualFields);
       break;
+    case validAuthFactors.TOTP:
+      fieldData = totpFields;
+      Object.assign(fieldData[0], individualFields);
+      break;
     case validAuthFactors.BIO:
       fieldData = bioLoginFields;
       Object.assign(fieldData.inputFields[0], individualFields);
@@ -310,6 +333,7 @@ const generateFieldData = (fieldName, openIDConnectService) => {
 export {
   pinFields,
   otpFields,
+  totpFields,
   signupFields,
   tabList,
   bioLoginFields,

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import {
   LoginPage,
@@ -26,6 +26,7 @@ import NetworkError from '../pages/NetworkError';
 import { Detector } from 'react-detect-offline';
 import { getPollingConfig } from '../helpers/utils';
 import LoadingIndicator from '../common/LoadingIndicator';
+import Footer from '../components/Footer';
 
 const WithSuspense = ({ children }) => (
   <Suspense fallback={<div className="h-screen w-screen bg-neutral-100"></div>}>
@@ -38,11 +39,8 @@ export const AppRouter = () => {
   const location = useLocation();
   const { t } = useTranslation();
   const [currentUrl, setCurrentUrl] = useState(window.location.href);
-  const [config, setConfig] = useState(null); // State to store config
+  const [config, setConfig] = useState(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
-  const [isOnline, setIsOnline] = useState(true);
-  const hasNavigatedToErrorRef = useRef(false);
-  const onlineStatusRef = useRef(true); // Track online status to avoid state updates during render
   const pollingConfig = getPollingConfig();
 
   useEffect(() => {
@@ -52,42 +50,18 @@ export const AppRouter = () => {
         setConfig(appConfig);
       } catch (error) {
         console.error('Failed to fetch config:', error);
-        // Consider navigating to an error page or showing an error message
       } finally {
-        setIsLoadingConfig(false); // Always set to false after fetch attempt
+        setIsLoadingConfig(false);
       }
     };
     fetchConfig();
-  }, []); // Run once on component mount
+  }, []);
 
   useEffect(() => {
     if (location.pathname !== NETWORK_ERROR) {
       setCurrentUrl(window.location.href);
-      // Reset the navigation flag when user navigates away from network error page
-      hasNavigatedToErrorRef.current = false;
     }
   }, [location.pathname]);
-
-  // Handle offline detection and navigation
-  useEffect(() => {
-    if (
-      !isOnline &&
-      location.pathname !== NETWORK_ERROR &&
-      !hasNavigatedToErrorRef.current
-    ) {
-      hasNavigatedToErrorRef.current = true;
-      navigate(NETWORK_ERROR, {
-        state: {
-          path: currentUrl,
-        },
-        replace: true,
-      });
-    }
-    // Reset flag when back online
-    else if (isOnline && hasNavigatedToErrorRef.current) {
-      hasNavigatedToErrorRef.current = false;
-    }
-  }, [isOnline, location.pathname, currentUrl, navigate]);
 
   useEffect(() => {
     setupResponseInterceptor(navigate);
@@ -102,7 +76,6 @@ export const AppRouter = () => {
   const checkRoute = (currentRoute) =>
     [LOGIN, AUTHORIZE, CONSENT, NETWORK_ERROR].includes(currentRoute);
 
-  // Show a loading state until config is fetched
   if (isLoadingConfig) {
     return (
       <div className="h-screen flex justify-center content-center">
@@ -115,8 +88,6 @@ export const AppRouter = () => {
     );
   }
 
-  // Now that config is guaranteed to be loaded (or null if fetching failed but isLoadingConfig is false),
-  // we can safely access its properties, adding null checks where appropriate.
   const backgroundLogoDiv = checkRoute(location.pathname) ? (
     config && config['background_logo'] ? (
       <div className="flex justify-center m-10 lg:mt-20 mb:mt-0 lg:w-1/2 md:w-1/2 md:block sm:w-1/2 sm:block hidden w-5/6 mt-20 mb-10 md:mb-0">
@@ -125,31 +96,9 @@ export const AppRouter = () => {
           alt={t('header.backgroud_image_alt')}
         />
       </div>
-    ) : (
-      <>
-        <img
-          className="top_left_bg_logo hidden md:block"
-          alt="top left background"
-        />
-        <img
-          className="bottom_left_bg_logo hidden md:block"
-          alt="bottom left background"
-        />
-        <img
-          className="top_right_bg_logo hidden md:block"
-          alt="top right background"
-        />
-        <img
-          className="bottom_right_bg_logo hidden md:block"
-          alt="bottom right background"
-        />
-      </>
-    )
-  ) : (
-    <></>
-  );
+    ) : null
+  ) : null;
 
-  // array of all routes
   const esignetRoutes = [
     { route: ESIGNET_DETAIL, component: <EsignetDetailsPage /> },
     { route: LOGIN, component: <LoginPage /> },
@@ -164,37 +113,52 @@ export const AppRouter = () => {
 
   return (
     <WithSuspense>
-      <div className="section-background">
-        <section className="login-text body-font pt-0 md:py-4">
-          <div className="container justify-center flex mx-auto sm:flex-row flex-col">
-            <Detector
-              polling={{
-                url: pollingConfig.url, // Set the polling URL dynamically
-                interval: pollingConfig.interval, // Optional: Check every 10 seconds (default is 10000ms)
-                timeout: pollingConfig.timeout, // Optional: Timeout after 5 seconds (default is 5000ms)
-                enabled: pollingConfig.enabled, // Optional: Enable or disable polling (default is true)
-              }}
-              render={({ online }) => {
-                if (online !== onlineStatusRef.current) {
-                  onlineStatusRef.current = online;
-                  // Trigger re-render by scheduling state update for next tick
-                  setTimeout(() => setIsOnline(online), 0);
-                }
-              }}
-            />
+      <div className="flex-1 flex flex-col min-h-0 w-full overflow-hidden">
+        <section
+          className="oidc-scroll-main login-text body-font relative bg-cover bg-center"
+          style={{
+            backgroundImage: "url('/images/background.svg')",
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        >
+          <div className="pointer-events-none absolute bottom-0 inset-x-0 h-[40%] z-30 bg-gradient-to-t from-white/40 to-transparent" />
+
+          <Detector
+            polling={{
+              url: pollingConfig.url,
+              interval: pollingConfig.interval,
+              timeout: pollingConfig.timeout,
+              enabled: pollingConfig.enabled,
+            }}
+            render={({ online }) => {
+              if (!online) {
+                navigate(NETWORK_ERROR, {
+                  state: {
+                    path: currentUrl,
+                  },
+                });
+              }
+            }}
+          />
+
+          <div className="oidc-page-content relative z-40 flex w-full flex-col items-center px-4 py-4 sm:min-h-full sm:justify-center sm:px-5 sm:py-10">
             {backgroundLogoDiv}
-            <Routes>
-              {esignetRoutes.map((route) => (
-                <Route
-                  exact
-                  key={route.route}
-                  path={process.env.PUBLIC_URL + route.route}
-                  element={route.component}
-                />
-              ))}
-            </Routes>
+            <div className="w-full max-w-[500px]">
+              <Routes>
+                {esignetRoutes.map((route) => (
+                  <Route
+                    exact
+                    key={route.route}
+                    path={process.env.PUBLIC_URL + route.route}
+                    element={route.component}
+                  />
+                ))}
+              </Routes>
+            </div>
           </div>
         </section>
+        <Footer />
       </div>
     </WithSuspense>
   );

@@ -35,3 +35,16 @@ helm/*/Chart.lock
 helm/*/charts/
 
 .DS_Store
+
+# Local JWE test keys (private material) — see docker-compose/README.md
+docker-compose/local-jwe-keys/
+
+# VeriFayda local / generated artifacts (do not publish)
+a.out
+logs/
+esignet-service/logs/
+esignet-service/BOOT-INF/
+docker-compose/.env
+docker-compose/oidc-ui/build/
+oidc-ui/verifayda-baked/
+artifacts/src/

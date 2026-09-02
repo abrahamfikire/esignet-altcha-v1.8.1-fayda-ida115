@@ -3,7 +3,6 @@ import LoadingIndicator from '../common/LoadingIndicator';
 import FormAction from './FormAction';
 import { LoadingStates as states } from '../constants/states';
 import { useTranslation } from 'react-i18next';
-import InputWithImage from './InputWithImage';
 import { buttonTypes, configurationKeys } from '../constants/clientConstants';
 import ReCAPTCHA from 'react-google-recaptcha';
 import ErrorBanner from '../common/ErrorBanner';
@@ -11,6 +10,42 @@ import langConfigService from '../services/langConfigService';
 import redirectOnError from '../helpers/redirectOnError';
 import LoginIDOptions from './LoginIDOptions';
 import InputWithPrefix from './InputWithPrefix';
+import Tooltip from './tooltip';
+import FanQrScanner from './FanQrScanner';
+
+const fanInputClass =
+  'rounded-md appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 focus:z-10 sm:text-sm';
+
+const fanInputCustomClass =
+  'h-10 border border-input border-gray bg-transparent px-3 py-2 text-sm ring-0 ring-offset-0 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none focus:border-gray focus-visible:border-gray file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-white/80 disabled:cursor-not-allowed disabled:bg-muted-light-gray shadow-none text-center background-transparent active:border-gray text-white';
+
+const QrCodeIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <rect width="5" height="5" x="3" y="3" rx="1" />
+    <rect width="5" height="5" x="16" y="3" rx="1" />
+    <rect width="5" height="5" x="3" y="16" rx="1" />
+    <path d="M21 16h-3a2 2 0 0 0-2 2v3" />
+    <path d="M21 21v.01" />
+    <path d="M12 7v3a2 2 0 0 1-2 2H7" />
+    <path d="M3 12h.01" />
+    <path d="M12 3h.01" />
+    <path d="M12 16v.01" />
+    <path d="M16 12h1" />
+    <path d="M21 12v.01" />
+    <path d="M12 21v-1" />
+  </svg>
+);
 
 export default function OtpGet({
   param,
@@ -45,9 +80,6 @@ export default function OtpGet({
     loadLangConfig();
   }, []);
 
-  const inputCustomClass =
-    'h-10 border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-[hsla(0, 0%, 51%)] focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-muted-light-gray shadow-none';
-
   const fields = param;
   let fieldsState = {};
   fields.forEach((field) => (fieldsState['Otp_' + field.id] = ''));
@@ -79,6 +111,7 @@ export default function OtpGet({
 
   const [status, setStatus] = useState({ state: states.LOADED, msg: '' });
   const [errorBanner, setErrorBanner] = useState(null);
+  const [showFanQrScanner, setShowFanQrScanner] = useState(false);
 
   const [captchaToken, setCaptchaToken] = useState(null);
   const _reCaptchaRef = useRef(null);
@@ -87,7 +120,6 @@ export default function OtpGet({
   const [countryCode, setCountryCode] = useState(null);
   const [individualId, setIndividualId] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
-  const [isValid, setIsValid] = useState(false);
   const [isBtnDisabled, setIsBtnDisabled] = useState(true);
   const [prevLanguage, setPrevLanguage] = useState(i18n.language);
 
@@ -132,7 +164,6 @@ export default function OtpGet({
   }
 
   const handleChange = (e) => {
-    setIsValid(true);
     onCloseHandle();
     const idProperties = getPropertiesForLoginID(
       currentLoginID,
@@ -161,23 +192,9 @@ export default function OtpGet({
     );
   };
 
-  const handleBlur = (e) => {
-    const idProperties = getPropertiesForLoginID(
-      currentLoginID,
-      e.target.name.split('_')[1]
-    );
-    const maxLength = idProperties.maxLength;
-    const regex = idProperties.regex ? new RegExp(idProperties.regex) : null;
-    setIsValid(
-      (!maxLength || e.target.value.trim().length <= parseInt(maxLength)) &&
-        (!regex || regex.test(e.target.value.trim()))
-    );
-  };
-
   useEffect(() => {
     if (i18n.language === prevLanguage) {
       setIndividualId(null);
-      setIsValid(false);
       setIsBtnDisabled(true);
       onCloseHandle();
       if (currentLoginID && currentLoginID.prefixes) {
@@ -282,8 +299,27 @@ export default function OtpGet({
     setErrorBanner(null);
   };
 
+  const handleFanScanned = (fan) => {
+    setShowFanQrScanner(false);
+    setErrorBanner(null);
+    setIndividualId(fan);
+    setIsBtnDisabled(false);
+
+    if (currentLoginID?.id) {
+      const inputEl = document.getElementById(`Otp_${currentLoginID.id}`);
+      if (inputEl) {
+        inputEl.value = fan;
+      }
+    }
+  };
+
+  const openFanQrScanner = () => {
+    setErrorBanner(null);
+    setShowFanQrScanner(true);
+  };
+
   return (
-    <>
+    <div className="text-white">
       {errorBanner !== null && (
         <div className="mb-4">
           <ErrorBanner
@@ -300,85 +336,138 @@ export default function OtpGet({
           setCurrentLoginID(value);
         }}
       />
-      {currentLoginID ? (
-        <div className="mt-0">
-          {currentLoginID?.prefixes?.length > 0 ? (
-            <InputWithPrefix
-              currentLoginID={currentLoginID}
-              login="Otp"
-              countryCode={(val) => {
-                setCountryCode(val);
-              }}
-              selectedCountry={(val) => {
-                setSelectedCountry(val);
-              }}
-              individualId={(val) => {
-                setIndividualId(val);
-              }}
-              isBtnDisabled={(val) => {
-                setIsBtnDisabled(val);
-              }}
-              i18nPrefix={i18nKeyPrefix1}
-            />
-          ) : (
-            <>
-              {fields.map((field) => (
-                <InputWithImage
-                  key={'Otp_' + currentLoginID.id}
-                  handleChange={handleChange}
-                  blurChange={handleBlur}
-                  labelText={currentLoginID.input_label}
-                  labelFor={'Otp_' + currentLoginID.id}
-                  id={'Otp_' + currentLoginID.id}
-                  name={'Otp_' + currentLoginID.id}
-                  type={field.type}
-                  placeholder={currentLoginID.input_placeholder}
-                  customClass={inputCustomClass}
-                  tooltipMsg="vid_info"
-                  errorCode={field.errorCode}
-                  individualId={individualId}
-                  isInvalid={!isValid}
-                  value={individualId ?? ''}
-                  currenti18nPrefix={i18nKeyPrefix1}
+      <div>
+        {currentLoginID ? (
+          <>
+            <div>
+              <h2 className="text-2xl font-medium text-center text-white mb-5 leading-snug px-1">
+                {t1('vid_label_text')}
+              </h2>
+              {currentLoginID?.prefixes?.length > 0 ? (
+                <InputWithPrefix
+                  currentLoginID={currentLoginID}
+                  login="Otp"
+                  hideLabel={true}
+                  countryCode={(val) => {
+                    setCountryCode(val);
+                  }}
+                  selectedCountry={(val) => {
+                    setSelectedCountry(val);
+                  }}
+                  individualId={(val) => {
+                    setIndividualId(val);
+                  }}
+                  isBtnDisabled={(val) => {
+                    setIsBtnDisabled(val);
+                  }}
+                  i18nPrefix={i18nKeyPrefix1}
                 />
-              ))}
-            </>
-          )}
+              ) : (
+                fields.map((field) => (
+                  <div
+                    key={'Otp_' + currentLoginID.id}
+                    className="flex items-center gap-2"
+                  >
+                    <label
+                      htmlFor={'Otp_' + currentLoginID.id}
+                      className="sr-only"
+                    >
+                      {t1('vid')}
+                    </label>
+                    <input
+                      onChange={handleChange}
+                      value={individualId ?? ''}
+                      id={'Otp_' + currentLoginID.id}
+                      name={'Otp_' + currentLoginID.id}
+                      type={field.type}
+                      required={field.isRequired}
+                      className={`${fanInputClass} ${fanInputCustomClass} flex-1 min-w-0`}
+                      placeholder={t1('vid_placeholder')}
+                      title={t1('vid_info')}
+                    />
+                    <button
+                      type="button"
+                      onClick={openFanQrScanner}
+                      aria-label={t1('scan_fan_qr')}
+                      title={t1('scan_fan_qr')}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-gray bg-transparent text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <QrCodeIcon />
+                    </button>
+                  </div>
+                ))
+              )}
 
-          {showCaptcha && (
-            <div className="flex justify-center mt-5 mb-2">
-              <ReCAPTCHA
-                hl={i18n.language}
-                ref={_reCaptchaRef}
-                onChange={handleCaptchaChange}
-                sitekey={captchaSiteKey}
+              <div className="flex justify-center items-center text-white mt-3 gap-2 flex-wrap">
+                <Tooltip
+                  content={
+                    <p className="text-center whitespace-normal max-w-xs">
+                      {t1('what_is_fan_answer')}
+                    </p>
+                  }
+                >
+                  <button
+                    type="button"
+                    className="px-2 py-1 flex items-center gap-1.5 text-sm"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+                    </svg>
+                    {t1('what_is_fan')}
+                  </button>
+                </Tooltip>
+              </div>
+            </div>
+
+            {showCaptcha && (
+              <div className="flex justify-center mt-5 mb-2">
+                <ReCAPTCHA
+                  hl={i18n.language}
+                  ref={_reCaptchaRef}
+                  onChange={handleCaptchaChange}
+                  sitekey={captchaSiteKey}
+                />
+              </div>
+            )}
+
+            <div className="mt-5 mb-2">
+              <FormAction
+                type={buttonTypes.button}
+                text={t1('get_otp')}
+                handleClick={sendOTP}
+                id="get_otp"
+                disabled={
+                  !individualId ||
+                  isBtnDisabled ||
+                  (showCaptcha && captchaToken === null)
+                }
               />
             </div>
-          )}
 
-          <div className="mt-5 mb-2">
-            <FormAction
-              type={buttonTypes.button}
-              text={t1('get_otp')}
-              handleClick={sendOTP}
-              id="get_otp"
-              disabled={
-                !individualId ||
-                isBtnDisabled ||
-                (showCaptcha && captchaToken === null)
-              }
-            />
+            {status.state === states.LOADING && (
+              <LoadingIndicator size="medium" message={status.msg} />
+            )}
+          </>
+        ) : (
+          <div className="py-6">
+            <LoadingIndicator size="medium" message="loading_msg" />
           </div>
+        )}
+      </div>
 
-          {status.state === states.LOADING && (
-            <LoadingIndicator size="medium" message={status.msg} />
-          )}
-        </div>
-      ) : (
-        <div className="py-6">
-          <LoadingIndicator size="medium" message="loading_msg" />
-        </div>
-      )}
-    </>
+      <FanQrScanner
+        open={showFanQrScanner}
+        onClose={() => setShowFanQrScanner(false)}
+        onScan={handleFanScanned}
+        openIDConnectService={openIDConnectService}
+      />
+    </div>
   );
 }

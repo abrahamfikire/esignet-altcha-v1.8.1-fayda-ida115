@@ -38,6 +38,12 @@ ApiService.interceptors.request.use(
   async (config) => {
     try {
       if (config.method?.toLowerCase() === 'post') {
+        const hostKey = 'csrfHost';
+        const currentHost = window.location.host;
+        if (sessionStorage.getItem(hostKey) !== currentHost) {
+          sessionStorage.removeItem('csrfToken');
+          sessionStorage.setItem(hostKey, currentHost);
+        }
         let csrfToken = sessionStorage.getItem('csrfToken');
         if (!csrfToken) {
           csrfToken = await get_CsrfToken();
@@ -60,14 +66,14 @@ export const setupResponseInterceptor = (navigate) => {
   ApiService.interceptors.response.use(
     (response) => response,
     (error) => {
-      const state = { code: error.response.status };
-      if (error?.response?.status && allErrorStatusCodes.includes(state.code)) {
-        navigate(SOMETHING_WENT_WRONG, { state });
-      } else {
-        const message = error?.message || 'Unknown error occurred';
-        const rejection = error instanceof Error ? error : new Error(message);
-        return Promise.reject(rejection);
+      const status = error?.response?.status;
+      if (status && allErrorStatusCodes.includes(status)) {
+        navigate(SOMETHING_WENT_WRONG, { state: { code: status } });
+        return;
       }
+      const message = error?.message || 'Unknown error occurred';
+      const rejection = error instanceof Error ? error : new Error(message);
+      return Promise.reject(rejection);
     }
   );
 };

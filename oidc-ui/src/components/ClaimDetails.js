@@ -8,7 +8,10 @@ import redirectOnError from '../helpers/redirectOnError';
 import { configurationKeys } from '../constants/clientConstants';
 import LoadingIndicator from '../common/LoadingIndicator';
 import { decodeHash } from '../helpers/utils';
-import { IMAGES } from '../constants/publicAssets';
+
+// Survive React.StrictMode remounts — claim-details + auth-code must run once per txn.
+const claimDetailsStartedTxns = new Set();
+const authCodeStartedTxns = new Set();
 
 const ClaimDetails = ({
   i18nKeyPrefix1 = 'consentDetails',
@@ -117,6 +120,11 @@ const ClaimDetails = ({
   };
 
   const getAllClaimDetails = async () => {
+    if (claimDetailsStartedTxns.has(transactionId)) {
+      return;
+    }
+    claimDetailsStartedTxns.add(transactionId);
+
     try {
       const { response, errors } = await authServices.getClaimDetails();
       if (errors?.length) {
@@ -153,6 +161,10 @@ const ClaimDetails = ({
             window.location.href.replace('claim-details', 'consent')
           );
         } else if (response?.consentAction === 'NOCAPTURE') {
+          if (authCodeStartedTxns.has(transactionId)) {
+            return;
+          }
+          authCodeStartedTxns.add(transactionId);
           const { response: authCodeResponse, errors: authCodeErrors } =
             await authServices.post_AuthCode(transactionId, [], []);
           if (authCodeErrors?.length) {
@@ -177,6 +189,8 @@ const ClaimDetails = ({
         setClaimsScopes(claimsScopes);
       }
     } catch (error) {
+      claimDetailsStartedTxns.delete(transactionId);
+      authCodeStartedTxns.delete(transactionId);
       redirectOnError('authorization_failed_msg', error.message);
     }
   };
@@ -315,14 +329,19 @@ const ClaimDetails = ({
                     className="client-logo-size"
                     src={oAuth_Details?.logoUrl}
                     alt={oAuth_Details?.clientName}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/logo.png?v=20260901h';
+                    }}
                   />
                   <img
                     className="h-5 mx-5"
-                    src={IMAGES.SYNC_ALT_BLACK}
+                    src="/images/sync_alt_black.svg"
                     alt="sync_alt"
                   />
                   <img
                     className="brand-only-logo client-logo-size"
+                    src="/logo.png?v=20260901h"
                     alt={t1('logo_alt')}
                   />
                 </div>
@@ -347,7 +366,7 @@ const ClaimDetails = ({
                                       width="16"
                                       height="16"
                                       viewBox="0 0 18.5 18.5"
-                                      className="mx-1 mt-[2px] w-[16px] h-[15px] inline relative bottom-[2px]"
+                                      className="mx-1 mt-[2px] w-[15px] h-[14px] inline relative bottom-[2px]"
                                     >
                                       <g
                                         id="info_FILL0_wght400_GRAD0_opsz48"

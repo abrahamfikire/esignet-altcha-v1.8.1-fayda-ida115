@@ -96,5 +96,19 @@ describe('Auth Factor Utilities', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('should add TOTP when Code (OTP) is present', () => {
+      const authFactors = [
+        [{ type: validAuthFactors.OTP }],
+        [{ type: validAuthFactors.BIO }],
+      ];
+      const result = getAllAuthFactors(authFactors, wlaList);
+
+      expect(result.map((option) => option.value.type)).toEqual([
+        validAuthFactors.OTP,
+        validAuthFactors.BIO,
+        validAuthFactors.TOTP,
+      ]);
+    });
   });
 });

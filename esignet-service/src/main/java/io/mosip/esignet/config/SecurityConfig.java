@@ -20,10 +20,18 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -54,21 +62,58 @@ public class SecurityConfig {
     @Value("${mosip.esignet.security.ignore-csrf-urls}")
     private String[] ignoreCsrfCheckUrls;
 
+    @Value("${mosip.esignet.cors.allowed-origins:}")
+    private String allowedOrigins;
+
     @Autowired
     private Environment environment;
 
 
     @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        if (StringUtils.hasText(allowedOrigins)) {
+            configuration.setAllowedOrigins(
+                    Arrays.stream(allowedOrigins.split(","))
+                            .map(String::trim)
+                            .filter(StringUtils::hasText)
+                            .collect(Collectors.toList()));
+        }
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
-        http.csrf(csrf -> csrf
-                        .csrfTokenRepository(new CookieCsrfTokenRepository())
-                        .ignoringRequestMatchers(ignoreCsrfCheckUrls))
+        // Use AntPathRequestMatcher so patterns that include server.servlet.path
+        // (e.g. /v1/esignet/oauth/**) match the full request URI. Default MVC
+        // matchers treat patterns as servlet-relative and CSRF would still apply
+        // to token exchange (server-to-server POSTs with no XSRF cookie → 403).
+        RequestMatcher[] csrfIgnoreMatchers = Arrays.stream(ignoreCsrfCheckUrls)
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .map(AntPathRequestMatcher::new)
+                .toArray(RequestMatcher[]::new);
+        RequestMatcher[] authIgnoreMatchers = Arrays.stream(ignoreAuthUrls)
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .map(AntPathRequestMatcher::new)
+                .toArray(RequestMatcher[]::new);
+
+        http.cors(withDefaults())
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .ignoringRequestMatchers(csrfIgnoreMatchers))
                 .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(localAuthenticationEntryPoint))
                 .authorizeHttpRequests(requests -> {
-                            requests.requestMatchers(ignoreAuthUrls).permitAll();
+                            requests.requestMatchers(authIgnoreMatchers).permitAll();
                             if (CollectionUtils.isEmpty(secureGetUrls) && CollectionUtils.isEmpty(securePostUrls) && CollectionUtils.isEmpty(securePutUrls)) {
                                 requests.anyRequest().permitAll();
                                 return;

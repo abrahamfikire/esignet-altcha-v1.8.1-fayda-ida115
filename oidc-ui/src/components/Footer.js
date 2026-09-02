@@ -34,7 +34,7 @@ export default function Footer({ i18nKeyPrefix = 'footer' }) {
 
   return (
     <footer
-      className="footer-container flex w-full flex-row flex-wrap items-center justify-center gap-y-6 gap-x-1 border border-blue-gray-50 text-center"
+      className="footer-container shrink-0 text-base flex w-full flex-row flex-wrap items-center justify-center gap-y-6 gap-x-1 text-center !bg-[#0F4356]"
       id="footer"
     >
       {t('powered_by')}

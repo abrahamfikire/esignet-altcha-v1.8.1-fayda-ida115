@@ -29,7 +29,6 @@ export default function Password({
   authService,
   openIDConnectService,
   backButtonDiv,
-  secondaryHeading,
   i18nKeyPrefix1 = 'password',
   i18nKeyPrefix2 = 'errors',
 }) {
@@ -78,10 +77,6 @@ export default function Password({
   const [isValid, setIsValid] = useState(false);
   const [isBtnDisabled, setIsBtnDisabled] = useState(true);
   const [prevLanguage, setPrevLanguage] = useState(i18n.language);
-
-  var loginIDs = openIDConnectService.getEsignetConfiguration(
-    configurationKeys.loginIdOptions
-  );
 
   let forgotPswdConfig = openIDConnectService.getEsignetConfiguration(
     configurationKeys.forgotPswdConfig
@@ -379,25 +374,7 @@ export default function Password({
 
   return (
     <>
-      <div className="flex items-center">
-        {backButtonDiv}
-        {currentLoginID && (
-          <div className="inline mx-2 font-semibold my-3">
-            {/*
-              according to the login id option, secondary heading value will be changed
-              if the login id option is single, then with secondary heading will pass a object with current id
-              if the login id option is multiple, then secondary heading will be passed as it is
-            */}
-            {t1(
-              secondaryHeading,
-              loginIDs &&
-                loginIDs.length === 1 && {
-                  currentID: t1(loginIDs[0].id),
-                }
-            )}
-          </div>
-        )}
-      </div>
+      <div className="flex items-center">{backButtonDiv}</div>
 
       {errorBanner !== null && (
         <div className="mb-4">
@@ -421,6 +398,7 @@ export default function Password({
               <InputWithPrefix
                 currentLoginID={currentLoginID}
                 login="Password"
+                hideLabel={true}
                 countryCode={(val) => {
                   setCountryCode(val);
                 }}
@@ -468,6 +446,7 @@ export default function Password({
                       idx === 0 ? handleChange : handlePasswordChange
                     }
                     blurChange={idx === 0 ? handleBlur : onBlurChange}
+                    hideLabel={idx === 0}
                     labelText={
                       idx === 0
                         ? currentLoginID.input_label

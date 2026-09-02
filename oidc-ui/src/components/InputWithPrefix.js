@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import ReactCountryFlag from 'react-country-flag';
 import { useTranslation } from 'react-i18next';
-import { IMAGES } from '../constants/publicAssets';
 
 const InputWithPrefix = (props) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -131,7 +130,11 @@ const InputWithPrefix = (props) => {
     selectedCountry && (
       <>
         <label
-          className="block mb-1 text-sm font-medium w-max mt-4"
+          className={
+            props.hideLabel
+              ? 'sr-only'
+              : 'block mb-1 text-sm font-medium w-max mt-4'
+          }
           htmlFor={props.currentLoginID.id}
         >
           {props.currentLoginID.input_label}
@@ -179,7 +182,7 @@ const InputWithPrefix = (props) => {
                     <span className="ml-2 relative top-[1.5px]">
                       {/* Dropdown arrow */}
                       <img
-                        src={IMAGES.UP_DOWN_ARROW_ICON}
+                        src="/images/up_down_arrow_icon.svg"
                         alt="up_down_arrow_icon"
                       />
                     </span>
@@ -249,7 +252,7 @@ const InputWithPrefix = (props) => {
           <small className="text-[#FE6B6B] font-medium flex items-center mt-1">
             <span>
               <img
-                src={IMAGES.ERROR_ICON}
+                src="\images\error_icon.svg"
                 alt="error_icon"
                 className="mr-1"
                 width="12px"

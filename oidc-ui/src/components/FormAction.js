@@ -9,7 +9,7 @@ export default function FormAction({
   customClassName,
 }) {
   const className =
-    'flex justify-center w-full font-semibold rounded-md px-5 py-3 text-center border-2 ';
+    '!bg-[#0F4356] !text-white rounded-[6px] flex justify-center items-center w-full min-h-11 font-medium text-sm px-5 py-2.5 text-center whitespace-normal break-words border-2 ';
 
   return (
     <>

@@ -1,134 +1,44 @@
-import { useState, useEffect } from 'react';
-import { Trans, useTranslation } from 'react-i18next';
-import { configurationKeys } from '../constants/clientConstants';
-import { checkConfigProperty } from '../helpers/utils';
+import { useTranslation } from 'react-i18next';
 
 export default function Background({
-  heading,
-  subheading,
   clientLogoPath,
   clientName,
   component,
-  oidcService,
   i18nKeyPrefix = 'header',
 }) {
-  const { t, i18n } = useTranslation('translation', {
+  const { t } = useTranslation('translation', {
     keyPrefix: i18nKeyPrefix,
   });
 
-  const [signupBanner, setSignupBanner] = useState(false);
-  const [signupURL, setSignupURL] = useState('');
-
-  let signupConfig = oidcService.getEsignetConfiguration(
-    configurationKeys.signupConfig
-  );
-
-  let clientAdditionalConfig = oidcService.getEsignetConfiguration(
-    configurationKeys.additionalConfig
-  );
-
-  const toggleSignupBanner = (exist) => {
-    if (exist) {
-      setSignupBanner(true);
-      setSignupURL(
-        signupConfig[configurationKeys.signupURL] +
-          window.location.search +
-          window.location.hash
-      );
-    } else {
-      setSignupBanner(false);
-    }
-  };
-
-  useEffect(() => {
-    if (
-      checkConfigProperty(
-        clientAdditionalConfig,
-        configurationKeys.signupBannerRequired
-      )
-    ) {
-      toggleSignupBanner(
-        clientAdditionalConfig[configurationKeys.signupBannerRequired]
-      );
-    } else if (
-      checkConfigProperty(signupConfig, configurationKeys.signupBanner)
-    ) {
-      toggleSignupBanner(signupConfig[configurationKeys.signupBanner]);
-    } else {
-      setSignupBanner(false);
-    }
-  }, [i18n.language]);
-
-  // check signup banner is present or not,
-  // and padding according to that only
-  const conditionalPadding = signupBanner ? 'pt-4' : 'py-4';
-
-  const handleSignup = () => {
-    window.onbeforeunload = null;
-  };
   return (
-    <div
-      className={
-        'multipurpose-login-card shadow-sm m-3 !rounded-lg w-auto sm:w-3/6 lg:max-w-sm md:z-10 md:m-auto ' +
-        conditionalPadding
-      }
-    >
-      <div className="flex flex-col flex-grow lg:px-5 md:px-4 sm:px-3 px-3">
-        <div className="w-full py-1">
-          <h1
-            className="flex text-center justify-center mb-3 font-bold text-xl"
-            id="login-header"
-          >
-            {heading}
-          </h1>
-          {subheading && (
-            <h1
-              className="text-center justify-center title-font sm:text-base text-base mb-3 py-1 font-small"
-              id="login-subheader"
-            >
-              <Trans
-                i18nKey={i18nKeyPrefix + '.' + subheading}
-                defaults={subheading}
-                values={{ clientName: clientName }}
-                components={{ strong: <strong /> }}
-              />
-            </h1>
-          )}
-        </div>
-        <div className="w-full flex mb-4 justify-center items-center pb-2">
+    <div className="h-fit w-full space-y-5">
+      <div className="rounded-[6px] bg-white/10 backdrop-blur-2xl border border-white/30 ring-1 ring-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.12)] flex flex-col p-5">
+        <div className="w-full flex justify-center items-center space-x-2">
           {clientLogoPath && (
             <img
-              className="object-contain client-logo-size client-logo-shadow rounded-[25px] border-[0.1px] border-white"
+              className="object-contain client-logo-size"
               src={clientLogoPath}
               alt={clientName}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/logo.png?v=20260901h';
+              }}
             />
           )}
-          <span className="flex mx-5 alternate-arrow"></span>
+          <img
+            className="object-contain data-exchange w-10 aspect-video"
+            alt={t('logo_alt')}
+          />
           <img
             className="object-contain brand-only-logo client-logo-size"
+            src="/logo.png?v=20260901h"
             alt={t('logo_alt')}
           />
         </div>
-        <div className="text-black lg:-mx-5 md:-mx-4 sm:-mx-3 -mx-3 login-card-separator"></div>
+      </div>
+      <div className="rounded-[6px] bg-white/10 backdrop-blur-2xl border border-white/30 ring-1 ring-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.12)] flex flex-col py-6 md:py-10 !px-5">
         {component}
       </div>
-      {/* Enable the signup banner when it is true in the signup.config of oauth-details */}
-      {signupBanner && (
-        <div className="signup-banner">
-          <p className="signup-banner-text" id="no-account">
-            {t('noAccount')}
-          </p>
-          <a
-            className="signup-banner-hyperlink"
-            id="signup-url-button"
-            href={signupURL}
-            target="_self"
-            onClick={() => handleSignup()}
-          >
-            {t('signup_for_unified_login')}
-          </a>
-        </div>
-      )}
     </div>
   );
 }

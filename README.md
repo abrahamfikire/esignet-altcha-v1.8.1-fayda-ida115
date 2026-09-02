@@ -53,10 +53,32 @@ The project requires JDK 21.
 * Perform Partner onboarding for esignet MISP partner using [steps](partner-onboarder/README.md) only if mosip-identity plugin is used.
 ## Run eSignet (for developers)
 * To simplify running eSignet in local for developers we have added [Docker Compose Setup](docker-compose/README.md). 
-* This docker-compose includes eSignet service and UI along with mock-identity-system to test the local deployment. 
+* This docker-compose includes eSignet service and UI along with mock-identity-system to test the local deployment.
+* For local **userinfo JWE** (encrypted userinfo) setup — including how to generate `enc_public_key` — see [Local userinfo JWE setup](docker-compose/README.md#local-userinfo-jwe-encryption-setup).
 ## APIs
 API documentation is available [here](docs/esignet-openapi.yaml).
 ## Documentation
 eSignet documentation is available [here](https://docs.esignet.io/).
 ## License
 This project is licensed under the terms of [Mozilla Public License 2.0](LICENSE).
+
+## Local VeriFayda Code (TOTP)
+
+`mosip:idp:acr:faydapass-code` is mapped to auth factor `TOTP` in `esignet-service/src/main/resources/amr_acr_mapping.json`.
+Challenge format is configured in `application-local.properties` (`format-totp`).
+The local mock plugin accepts TOTP (UI option already shown when that ACR is requested).
+
+**Enrollment (outside eSignet)** — enroll, then **verify-enrollment** to activate the credential:
+
+```text
+GET  …/v1/totp/time
+POST …/v1/totp/enroll
+POST …/v1/totp/verify-enrollment
+POST …/v1/totp/verify          ← used at login when totp-verify-url is set
+```
+
+See [docs/TOTP_ENROLLMENT.md](docs/TOTP_ENROLLMENT.md) and run `docker-compose/scripts/totp-flow.sh`.
+
+- Default local: leave `totp-verify-url` empty → enter mock OTP **`111111`**.
+- Real verifier: set `mosip.esignet.mock.authenticator.totp-verify-url=https://totp.oracle1.fayda.et/v1/totp/verify` and restart eSignet.
+

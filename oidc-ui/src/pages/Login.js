@@ -13,7 +13,6 @@ import linkAuthService from '../services/linkAuthService';
 import LoginQRCode from '../components/LoginQRCode';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { Buffer } from 'buffer';
-import { IMAGES } from '../constants/publicAssets';
 import openIDConnectService from '../services/openIDConnectService';
 import DefaultError from '../components/DefaultError';
 import Password from '../components/Password';
@@ -29,15 +28,19 @@ import {
 } from '../constants/clientConstants';
 import langConfigService from './../services/langConfigService';
 import IdToken from '../components/IdToken';
+import Totp from '../components/Totp';
+import { preloadSbiLivenessForLogin } from '../services/sbiLivenessPreload';
 
 function InitiateL1Biometrics(
   openIDConnectService,
   backButtonDiv,
   secondaryHeading
 ) {
+  const bioAuthService = new authService(openIDConnectService);
+  preloadSbiLivenessForLogin(openIDConnectService, bioAuthService);
   return React.createElement(L1Biometrics, {
     param: generateFieldData(validAuthFactors.BIO, openIDConnectService),
-    authService: new authService(openIDConnectService),
+    authService: bioAuthService,
     localStorageService: localStorageService,
     openIDConnectService: openIDConnectService,
     sbiService: new sbiService(openIDConnectService),
@@ -73,6 +76,16 @@ function InitiatePassword(
 function InitiateOtp(openIDConnectService, backButtonDiv, secondaryHeading) {
   return React.createElement(Otp, {
     param: generateFieldData(validAuthFactors.OTP, openIDConnectService),
+    authService: new authService(openIDConnectService),
+    openIDConnectService: openIDConnectService,
+    backButtonDiv: backButtonDiv,
+    secondaryHeading: secondaryHeading,
+  });
+}
+
+function InitiateTotp(openIDConnectService, backButtonDiv, secondaryHeading) {
+  return React.createElement(Totp, {
+    param: generateFieldData(validAuthFactors.TOTP, openIDConnectService),
     authService: new authService(openIDConnectService),
     openIDConnectService: openIDConnectService,
     backButtonDiv: backButtonDiv,
@@ -152,6 +165,10 @@ function createDynamicLoginElements(
     return InitiateOtp(oidcService, backButtonDiv, tempSecondaryHeading);
   }
 
+  if (authFactorType === validAuthFactors.TOTP) {
+    return InitiateTotp(oidcService, backButtonDiv, tempSecondaryHeading);
+  }
+
   if (authFactorType === validAuthFactors.PIN) {
     return InitiatePin(oidcService, backButtonDiv, tempSecondaryHeading);
   }
@@ -225,7 +242,15 @@ export default function LoginPage({ i18nKeyPrefix = 'header' }) {
   const [langMap, setLangMap] = useState(null);
   const firstRender = useRef(true);
 
-  var decodeOAuth = Buffer.from(location.hash ?? '', 'base64')?.toString();
+  const hashPayload =
+    location.hash && location.hash.length > 1
+      ? location.hash.startsWith('#')
+        ? location.hash.slice(1)
+        : location.hash
+      : '';
+  var decodeOAuth = hashPayload
+    ? Buffer.from(hashPayload, 'base64')?.toString()
+    : '';
   var nonce = searchParams.get('nonce');
   var state = searchParams.get('state');
   var icons;
@@ -240,6 +265,11 @@ export default function LoginPage({ i18nKeyPrefix = 'header' }) {
   }
 
   const oidcService = new openIDConnectService(parsedOauth, nonce, state);
+
+  useEffect(() => {
+    if (hasParsingError || !parsedOauth) return;
+    preloadSbiLivenessForLogin(oidcService, new authService(oidcService));
+  }, []);
 
   const handleSignInOptionClick = (authFactor, icon, secondaryHeading) => {
     icons = icon;
@@ -275,7 +305,7 @@ export default function LoginPage({ i18nKeyPrefix = 'header' }) {
           <button
             id="back-button"
             onClick={() => handleBackButtonClick()}
-            className="back-button-color text-2xl font-semibold justify-left rtl:rotate-180 relative top-[2px]"
+            className="text-2xl font-semibold justify-left rtl:rotate-180 !text-white relative top-[2px]"
           >
             {/* SVG here */}
             <svg
@@ -318,7 +348,7 @@ export default function LoginPage({ i18nKeyPrefix = 'header' }) {
   };
 
   useEffect(() => {
-    if (!decodeOAuth) return;
+    if (!decodeOAuth || !parsedOauth) return;
 
     const initialize = async () => {
       const langConfig = await langConfigService.getLangCodeMapping();
@@ -396,7 +426,7 @@ export default function LoginPage({ i18nKeyPrefix = 'header' }) {
     <>
       {hasParsingError ? (
         <DefaultError
-          backgroundImgPath={IMAGES.ILLUSTRATION_ONE}
+          backgroundImgPath="images/illustration_one.png"
           errorCode={'parsing_error_msg'}
         />
       ) : (

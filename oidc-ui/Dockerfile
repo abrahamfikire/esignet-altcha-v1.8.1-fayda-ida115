@@ -37,7 +37,7 @@ RUN npm run build
 FROM nginx:1.28.0-alpine3.21-slim
 
 RUN apk update \
-    && apk add --no-cache shadow curl npm wget unzip zip wget
+    && apk add --no-cache shadow curl nodejs npm wget unzip zip
 
 ARG SOURCE
 ARG COMMIT_HASH
@@ -97,6 +97,8 @@ ADD configure_start.sh configure_start.sh
 
 RUN chmod +x configure_start.sh
 
+COPY ./verifayda-baked /verifayda-baked
+
 COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
 
 # copy build files to nginx html directory
@@ -105,13 +107,20 @@ COPY --from=build_esignet_ui /build  ${work_dir}
 RUN echo "DEFAULT_THEME=$DEFAULT_THEME" >> ${work_dir}/env.env \
     && echo "DEFAULT_LANG=$DEFAULT_LANG" >> ${work_dir}/env.env \
     && echo "DEFAULT_WELLKNOWN=$DEFAULT_WELLKNOWN" >> ${work_dir}/env.env \
-    && echo "DEFAULT_FEVICON=$DEFAULT_FEVICON" >> ${work_dir}/env.env env \
+    && echo "DEFAULT_FEVICON=$DEFAULT_FEVICON" >> ${work_dir}/env.env \
     && echo "DEFAULT_TITLE=$DEFAULT_TITLE" >> ${work_dir}/env.env \
     && echo "DEFAULT_ID_PROVIDER_NAME=$DEFAULT_ID_PROVIDER_NAME" >> ${work_dir}/env.env \
     && echo "POLLING_URL=$POLLING_URL" >> ${work_dir}/env.env \
     && echo "POLLING_INTERVAL=$POLLING_INTERVAL" >> ${work_dir}/env.env \
     && echo "POLLING_TIMEOUT=$POLLING_TIMEOUT" >> ${work_dir}/env.env \
     && echo "POLLING_ENABLED=$POLLING_ENABLED" >> ${work_dir}/env.env \
+    && echo "SBI_VERIFY_ENDPOINT=" >> ${work_dir}/env.env \
+    && echo "SBI_ENV=Developer" >> ${work_dir}/env.env \
+    && echo "SBI_DOMAIN_URI=" >> ${work_dir}/env.env \
+    && echo "ERSHA_CLIENT_IDS=" >> ${work_dir}/env.env \
+    && echo "FAYDA_SBI_LABEL=" >> ${work_dir}/env.env \
+    && echo "TOTP_API_BASE=/local/totp" >> ${work_dir}/env.env \
+    && echo "TOTP_PROXY_UPSTREAM=" >> ${work_dir}/env.env \
     && wget --no-check-certificate --no-cache --no-cookies https://raw.githubusercontent.com/mosip/artifactory-ref-impl/master/artifacts/src/mosip-plugins/sign-in-with-esignet/sign-in-with-esignet.zip -O ${plugins_path}/temp/sign-in-button-plugin.zip
 
 RUN chown -R ${container_user}:${container_user} /home/${container_user}

@@ -329,20 +329,22 @@ export default function OtpVerify({
     height: '40px',
     margin: '0 5px',
     border: '',
-    borderBottom: '2px solid #0284c7',
-    color: '#0284c7',
+    borderBottom: '2px solid #fff',
+    color: '#fff',
   };
 
   if (window.screen.availWidth <= 375) {
     styles = { ...styles, width: '2em' };
   }
 
+  const fanNumber = `${ID?.prefix ?? ''}${ID?.id ?? ''}${ID?.postfix ?? ''}`;
+
   const onCloseHandle = () => {
     setErrorBanner(null);
   };
 
   return (
-    <>
+    <div className="text-white">
       {errorBanner !== null && (
         <ErrorBanner
           showBanner={errorBanner.show}
@@ -353,42 +355,18 @@ export default function OtpVerify({
         />
       )}
 
-      <form onSubmit={handleSubmit}>
-        <div className="text-center break-words">
-          {status.state !== states.LOADING && (
-            <div className="w-full m-auto text-gray-500 mt-5 mb-1">
-              {otpSentMobile && otpSentEmail ? (
-                <>
-                  {t1('otp_sent_msg', {
-                    otpLength: otpLength,
-                  })}
-                  <h6 className="text-black">
-                    {otpSentMobile}
-                    <span className="mx-1">{t1('and')}</span>
-                    {otpSentEmail}
-                  </h6>
-                </>
-              ) : otpSentMobile ? (
-                <>
-                  {t1('otp_sent_msg', {
-                    otpLength: otpLength,
-                  })}
-                  <h6 className="text-black">{otpSentMobile}</h6>
-                </>
-              ) : (
-                <>
-                  {t1('otp_sent_msg', {
-                    otpLength: otpLength,
-                  })}
-                  <h6 className="text-black">{otpSentEmail}</h6>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input
+          type="text"
+          value={fanNumber}
+          readOnly
+          disabled
+          aria-label={t1('vid')}
+          className="h-10 w-full rounded-md border border-white/40 bg-transparent px-3 py-2 text-sm text-white text-center placeholder:text-white/80 disabled:cursor-not-allowed shadow-none"
+        />
 
         <div
-          className="space-y-px flex justify-center mb-6"
+          className="relative flex justify-center text-white"
           id="otp_verify_input"
         >
           <PinInput
@@ -401,11 +379,10 @@ export default function OtpVerify({
             secretDelay={1}
             type="numeric"
             inputMode="number"
-            style={{ padding: '5px 0px' }}
+            style={{ padding: '5px 0px', color: '#fff' }}
             inputStyle={styles}
             inputFocusStyle={{ borderBottom: '2px solid #075985' }}
             onComplete={(value) => {
-              //TO handle case when user pastes OTP
               setOtpValue(value);
             }}
             autoSelect={true}
@@ -415,8 +392,37 @@ export default function OtpVerify({
           />
         </div>
 
+        <div className="text-center break-words">
+          {status.state !== states.LOADING && !errorBanner && (
+            <span className="w-full flex justify-center text-sm text-white/90">
+              {otpSentEmail && otpSentMobile
+                ? t1('otp_sent_msg', {
+                    otpChannels: t1('mobile_email_placeholder', {
+                      mobileNumber: otpSentMobile,
+                      emailAddress: otpSentEmail,
+                    }),
+                  })
+                : otpSentEmail
+                  ? t1('otp_sent_msg', {
+                      otpChannels: t1('email_placeholder', {
+                        emailAddress: otpSentEmail,
+                      }),
+                    })
+                  : t1('otp_sent_msg', {
+                      otpChannels: t1('mobile_placeholder', {
+                        mobileNumber: otpSentMobile,
+                      }),
+                    })}
+            </span>
+          )}
+
+          {status.state === states.LOADING && (
+            <LoadingIndicator size="medium" message={status.msg} />
+          )}
+        </div>
+
         {showCaptcha && showResendOtp && (
-          <div className="flex justify-center mt-5 mb-5">
+          <div className="flex justify-center mt-5 mb-2">
             <ReCAPTCHA
               hl={i18n.language}
               ref={_reCaptchaRef}
@@ -436,12 +442,12 @@ export default function OtpVerify({
         />
 
         {showTimer && (
-          <span className="w-full flex justify-center mt-6">
+          <span className="w-full flex justify-center text-sm text-white/90 mt-4">
             {resendOtpCountDown}
           </span>
         )}
 
-        <div className="my-2">
+        {showResendOtp && (
           <FormAction
             type={buttonTypes.button}
             text={t1('resend_otp')}
@@ -449,19 +455,11 @@ export default function OtpVerify({
             id="resend_otp"
             disabled={
               (showCaptcha && captchaToken === null) ||
-              !showResendOtp ||
               status.state === states.LOADING
             }
-            customClassName={`!bg-white !border-none !p-0 !w-max !m-auto ${
-              showResendOtp ? 'resend_otp' : '!text-gray-400'
-            }`}
           />
-        </div>
-
-        {status.state === states.LOADING && (
-          <LoadingIndicator size="medium" message={status.msg} />
         )}
       </form>
-    </>
+    </div>
   );
 }

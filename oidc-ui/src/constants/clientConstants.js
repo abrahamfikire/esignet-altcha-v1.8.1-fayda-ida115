@@ -4,10 +4,26 @@ const deviceType = {
   iris: 'Iris',
 };
 
+const tooltips = {
+  OTP: {
+    question: 'otp_tooltip_question',
+    answer: 'otp_tooltip_answer',
+  },
+  TOTP: {
+    question: 'totp_tooltip_question',
+    answer: 'totp_tooltip_answer',
+  },
+  BIO: {
+    question: 'bio_tooltip_question',
+    answer: 'bio_tooltip_answer',
+  },
+};
+
 const challengeTypes = {
   bio: 'BIO',
   pin: 'PIN',
   otp: 'OTP',
+  totp: 'TOTP',
   wallet: 'WALLET',
   pswd: 'PWD',
   kbi: 'KBI',
@@ -18,6 +34,7 @@ const challengeFormats = {
   bio: 'encoded-json',
   pin: 'number',
   otp: 'alpha-numeric',
+  totp: 'format-totp',
   wallet: 'jwt',
   pswd: 'alpha-numeric',
   kbi: 'base64url-encoded-json',
@@ -27,6 +44,7 @@ const challengeFormats = {
 const validAuthFactors = {
   PIN: 'PIN',
   OTP: 'OTP',
+  TOTP: 'TOTP',
   BIO: 'BIO',
   PSWD: 'PWD',
   WLA: 'WLA',
@@ -90,6 +108,7 @@ const configurationKeys = {
   consentScreenTimeOutBufferInSec: 'consent.screen.timeout-buffer-in-secs',
   walletQrCodeAutoRefreshLimit: 'wallet.qr-code.auto-refresh-limit',
   walletConfig: 'wallet.config',
+  fanQrRegex: 'fan.qr.regex',
   signupConfig: 'signup.config',
   signupBanner: 'signup.banner',
   signupURL: 'signup.url',
@@ -112,12 +131,13 @@ const configurationKeys = {
 };
 
 const modalityIconPath = {
-  PIN: 'images/otp_icon.svg',
-  OTP: 'images/otp_icon.svg',
-  WALLET: 'images/wallet_icon.svg',
-  BIO: 'images/bio_icon.svg',
-  PSWD: 'images/pwd_icon.svg',
-  KBI: 'images/kbi_icon.svg',
+  PIN: '/images/otp_icon.svg',
+  OTP: '/images/otp_icon.svg',
+  TOTP: '/images/totp_icon.svg',
+  WALLET: '/images/wallet_icon.svg',
+  BIO: '/images/bio_icon.svg',
+  PSWD: '/images/pwd_icon.svg',
+  KBI: '/images/kbi_icon.svg',
 };
 
 const errorCodeObj = {
@@ -175,4 +195,5 @@ export {
   purposeSubTitleKey,
   authLabelKey,
   multipleIdKey,
+  tooltips,
 };

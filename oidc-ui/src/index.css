@@ -2,3 +2,117 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  height: 100%;
+  height: 100dvh;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+#root {
+  height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.oidc-app-shell {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.oidc-scroll-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  .oidc-scroll-main {
+    padding-bottom: 1rem;
+  }
+
+  .oidc-page-content {
+    justify-content: flex-start;
+    min-height: auto;
+    padding-top: 1rem;
+    padding-bottom: max(3rem, calc(1.25rem + env(safe-area-inset-bottom)));
+  }
+
+  .oidc-page-content .signup-banner {
+    margin-bottom: 0.5rem;
+  }
+
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+}
+
+.fan-qr-scanner-viewport {
+  width: 100%;
+}
+
+.fan-qr-scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+/* Android phones use embedded face capture, not localhost SBI discovery */
+.sbi-mobile-face-only .sbd-exosekeleton > :first-child {
+  display: none;
+}
+
+/*
+ * Local SBI discovery failure must not block Ersha/Fayda embedded face.
+ * Integrator still paints "Device Not Found" while our injected device is Ready.
+ */
+.sbi-fayda-ready .sbd-verify-button-div [role='alert'] {
+  display: none !important;
+}
+
+/* Biometrics Scan and Verify — match VeriFayda primary button */
+#secure-biometric-interface-integration .sbd-verify-button-div button,
+.sbd-verify-button-div button,
+.sbi-scan-verify-button {
+  background-color: #0f4356 !important;
+  background-image: none !important;
+  border-color: #0f4356 !important;
+  color: #ffffff !important;
+}
+
+#secure-biometric-interface-integration
+  .sbd-verify-button-div
+  button:hover:not(:disabled),
+.sbd-verify-button-div button:hover:not(:disabled),
+.sbi-scan-verify-button:hover:not(:disabled) {
+  background-color: #0c3645 !important;
+  border-color: #0c3645 !important;
+}
+
+#secure-biometric-interface-integration .sbd-verify-button-div button:disabled,
+.sbd-verify-button-div button:disabled,
+.sbi-scan-verify-button:disabled {
+  background-color: #cbcbcb !important;
+  border-color: #cbcbcb !important;
+  color: #ffffff !important;
+  cursor: not-allowed;
+}
+

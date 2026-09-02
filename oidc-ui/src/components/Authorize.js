@@ -1,9 +1,12 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import ErrorIndicator from '../common/ErrorIndicator';
 import LoadingIndicator from '../common/LoadingIndicator';
 import { LoadingStates as states } from '../constants/states';
+
+// Deduplicate oauth-details under React.StrictMode (dev double-mount).
+const oauthDetailsInFlight = new Map();
 
 export default function Authorize({ authService }) {
   const post_OauthDetails_v3 = authService.post_OauthDetails_v3;
@@ -16,10 +19,9 @@ export default function Authorize({ authService }) {
   const [error, setError] = useState(null);
   const [searchParams] = useSearchParams();
 
-  const navigate = useNavigate();
-
   useEffect(() => {
     const callAuthorize = async () => {
+      const requestKey = searchParams.toString();
       try {
         setStatus(states.LOADING);
 
@@ -34,15 +36,22 @@ export default function Authorize({ authService }) {
           }
         };
 
+        if (oauthDetailsInFlight.has(requestKey)) {
+          await oauthDetailsInFlight.get(requestKey).then(handleResponse);
+          return;
+        }
+
         const clientId = searchParams.get('client_id');
         const requestUri = searchParams.get('request_uri');
 
-        const isParFlow = clientId && requestUri;
+        const isParFlow =
+          clientId && requestUri && [...searchParams.keys()].length === 2;
 
+        let detailsPromise;
         if (isParFlow) {
           storeQueryParam(searchParams.toString());
           const payload = { clientId, requestUri };
-          await post_ParOauthDetails(payload).then(handleResponse);
+          detailsPromise = post_ParOauthDetails(payload);
         } else {
           const extractParam = (param) => searchParams.get(param);
 
@@ -84,9 +93,18 @@ export default function Authorize({ authService }) {
             )
           );
 
-          await post_OauthDetails_v3(filteredRequest).then(handleResponse);
+          detailsPromise = post_OauthDetails_v3(filteredRequest);
+        }
+
+        oauthDetailsInFlight.set(requestKey, detailsPromise);
+        try {
+          await detailsPromise.then(handleResponse);
+        } finally {
+          // Keep briefly so StrictMode remount can reuse; clear after settle.
+          setTimeout(() => oauthDetailsInFlight.delete(requestKey), 5000);
         }
       } catch (error) {
+        oauthDetailsInFlight.delete(requestKey);
         setStatus(states.LOADED);
         setOAuthDetailResponse(null);
         setError(error.message);
@@ -105,7 +123,9 @@ export default function Authorize({ authService }) {
 
   const redirectToLogin = async () => {
     const isParFlow =
-      searchParams.get('client_id') && searchParams.get('request_uri');
+      searchParams.get('client_id') &&
+      searchParams.get('request_uri') &&
+      [...searchParams.keys()].length === 2;
 
     if (!oAuthDetailResponse) {
       return;
@@ -128,9 +148,7 @@ export default function Authorize({ authService }) {
           ui_locales: searchParams.get('ui_locales'),
         });
 
-        navigate(process.env.PUBLIC_URL + '/login' + params, {
-          replace: true,
-        });
+        window.location.replace(process.env.PUBLIC_URL + '/login' + params);
       } catch (error) {
         setOAuthDetailResponse(null);
         setError('Failed to load');

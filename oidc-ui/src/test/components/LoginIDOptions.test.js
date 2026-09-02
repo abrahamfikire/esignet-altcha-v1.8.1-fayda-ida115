@@ -117,21 +117,30 @@ describe('LoginIDOptions Component', () => {
     setupMocks({ loginIDs: null });
     render(<LoginIDOptions currentLoginID={mockCurrentLoginID} />);
     await waitFor(() => {
-      expect(screen.getByText('buttons.vid')).toBeInTheDocument();
+      expect(mockCurrentLoginID).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'vid' })
+      );
     });
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('handles failed SVG fetch gracefully', async () => {
     setupMocks({ loginIDs: fallbackLoginIDs, fetchOk: false });
     render(<LoginIDOptions currentLoginID={mockCurrentLoginID} />);
     await waitFor(() => {
-      expect(screen.getByText('buttons.vid')).toBeInTheDocument();
+      expect(mockCurrentLoginID).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'vid' })
+      );
     });
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('replaces stroke in fetched SVG', async () => {
     setupMocks({
-      loginIDs: fallbackLoginIDs,
+      loginIDs: [
+        { id: 'vid', svg: 'vid_icon' },
+        { id: 'mobile', svg: 'mobile_icon' },
+      ],
       svgText: '<svg stroke="black"></svg>',
     });
     render(<LoginIDOptions currentLoginID={mockCurrentLoginID} />);
@@ -160,12 +169,20 @@ describe('LoginIDOptions Component', () => {
     setupMocks({ loginIDs: [fallbackLoginIDs[0]] });
     render(<LoginIDOptions currentLoginID={mockCurrentLoginID} />);
     await waitFor(() => {
-      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+      expect(mockCurrentLoginID).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'vid' })
+      );
     });
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('updates input_label and input_placeholder on language change', async () => {
-    setupMocks({ loginIDs: fallbackLoginIDs });
+    setupMocks({
+      loginIDs: [
+        { id: 'vid', svg: 'vid_icon' },
+        { id: 'mobile', svg: 'mobile_icon' },
+      ],
+    });
     render(<LoginIDOptions currentLoginID={mockCurrentLoginID} />);
     await waitFor(() => {
       expect(screen.getByText('buttons.vid')).toBeInTheDocument();
@@ -184,7 +201,10 @@ describe('LoginIDOptions Component', () => {
 
   it('throws error when fetch response is not ok', async () => {
     setupMocks({
-      loginIDs: fallbackLoginIDs,
+      loginIDs: [
+        { id: 'vid', svg: 'vid_icon' },
+        { id: 'mobile', svg: 'mobile_icon' },
+      ],
     });
 
     global.fetch = jest.fn(() =>
@@ -215,7 +235,12 @@ describe('LoginIDOptions Component', () => {
       }),
     }));
 
-    setupMocks({ loginIDs: fallbackLoginIDs });
+    setupMocks({
+      loginIDs: [
+        { id: 'vid', svg: 'vid_icon' },
+        { id: 'mobile', svg: 'mobile_icon' },
+      ],
+    });
     render(<LoginIDOptions currentLoginID={mockCurrentLoginID} />);
 
     await waitFor(() => {

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import openIDConnectService from '../services/openIDConnectService';
 import { configurationKeys } from '../constants/clientConstants';
 import { decodeHash } from '../helpers/utils';
-import { PUBLIC_URL } from '../constants/publicAssets';
 
 const LoginIDOptions = (props) => {
   const [selectedOption, setSelectedOption] = useState();
@@ -51,7 +50,7 @@ const LoginIDOptions = (props) => {
   const [iconsMap, setIconsMap] = useState({}); // To store preloaded SVGs
   const fetchSvg = async (path) => {
     try {
-      const response = await fetch(PUBLIC_URL + `/images/${path}.svg`);
+      const response = await fetch(`/images/${path}.svg`);
       if (!response.ok) {
         throw new Error('Failed to fetch SVG');
       }
@@ -66,7 +65,20 @@ const LoginIDOptions = (props) => {
     }
   };
 
+  const singleOption = loginIDs.length === 1;
+
   useEffect(() => {
+    if (singleOption) {
+      const option = loginIDs[0];
+      setSelectedOption({
+        ...option,
+        svg: null,
+        input_label: t(`input.label.${option.id}`),
+        input_placeholder: t(`input.placeholder.${option.id}`),
+      });
+      return;
+    }
+
     const preloadIcons = async () => {
       const svgPromises = loginIDs.map(async (option) => {
         const svgContent = await fetchSvg(option.svg);
@@ -111,6 +123,10 @@ const LoginIDOptions = (props) => {
   }, [i18n.language]);
 
   props.currentLoginID(selectedOption);
+
+  if (singleOption) {
+    return null;
+  }
 
   return (
     selectedOption && (

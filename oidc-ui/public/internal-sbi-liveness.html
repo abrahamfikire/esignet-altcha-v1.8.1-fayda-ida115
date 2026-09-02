@@ -1,0 +1,4334 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <script>
+            (function () {
+                var embed = false;
+                try {
+                    embed =
+                        new URLSearchParams(location.search).get("embed") ===
+                            "1" || window.self !== window.top;
+                } catch (e) {
+                    embed = true;
+                }
+                if (embed) {
+                    document.documentElement.classList.add("embed-mode");
+                }
+                var isIos =
+                    /iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
+                    (navigator.platform === "MacIntel" &&
+                        navigator.maxTouchPoints > 1);
+                if (isIos) {
+                    document.documentElement.classList.add("ios-safari");
+                }
+            })();
+        </script>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            http-equiv="Permissions-Policy"
+            content="picture-in-picture=(), fullscreen=()"
+        />
+        <title>Face Active Liveness Check</title>
+        <link
+            rel="preload"
+            href="https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+            as="fetch"
+            crossorigin="anonymous"
+        />
+        <link
+            rel="preload"
+            href="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm/vision_wasm_internal.wasm"
+            as="fetch"
+            crossorigin="anonymous"
+        />
+        <link
+            rel="preload"
+            href="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm/vision_wasm_internal.js"
+            as="script"
+            crossorigin="anonymous"
+        />
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                font-family: system-ui, sans-serif;
+                background: #0f172a;
+                color: #e2e8f0;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 24px;
+            }
+            body.modal-open {
+                overflow: hidden;
+            }
+            h1 {
+                margin: 0 0 8px;
+                font-size: 1.5rem;
+            }
+            p {
+                margin: 0 0 16px;
+                color: #94a3b8;
+                text-align: center;
+                max-width: 520px;
+            }
+            .landing {
+                width: min(640px, 100%);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 16px;
+            }
+            .landing .status {
+                width: 100%;
+                margin-bottom: 0;
+            }
+            .btn-start {
+                margin-top: 4px;
+                padding: 14px 32px;
+                font-size: 1.05rem;
+                border-radius: 10px;
+                background: linear-gradient(135deg, #2563eb, #0ea5e9);
+                box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+            }
+            .btn-start:hover:not(:disabled) {
+                filter: brightness(1.08);
+            }
+            .landing-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                justify-content: center;
+            }
+            .verify-dialog {
+                position: fixed;
+                inset: 0;
+                z-index: 200;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 16px;
+            }
+            .verify-dialog.hidden {
+                display: none;
+            }
+            .verify-dialog-backdrop {
+                position: absolute;
+                inset: 0;
+                background: rgba(2, 6, 23, 0.72);
+                backdrop-filter: blur(4px);
+            }
+            .verify-dialog-panel {
+                position: relative;
+                z-index: 1;
+                width: min(680px, 100%);
+                max-height: min(96vh, 900px);
+                overflow: auto;
+                background: #1e293b;
+                border-radius: 16px;
+                border: 1px solid rgba(56, 189, 248, 0.25);
+                box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+                padding: 16px 16px 14px;
+            }
+            .verify-dialog-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin-bottom: 12px;
+            }
+            .verify-dialog-header h2 {
+                margin: 0;
+                font-size: 1.1rem;
+                font-weight: 700;
+                color: #f1f5f9;
+            }
+            .dialog-close {
+                width: 36px;
+                height: 36px;
+                margin: 0;
+                padding: 0;
+                border-radius: 8px;
+                background: #334155;
+                color: #e2e8f0;
+                font-size: 1.35rem;
+                line-height: 1;
+                cursor: pointer;
+            }
+            .dialog-close:hover:not(:disabled) {
+                background: #475569;
+            }
+            /* Embedded in OIDC UI iframe: fill parent and keep camera stage large */
+            html.embed-mode,
+            body.embed-mode {
+                width: 100%;
+                height: 100%;
+                min-height: 100%;
+                overflow: hidden;
+            }
+            html.embed-mode body {
+                background: #111827;
+                padding: 0;
+                margin: 0;
+            }
+            html.embed-mode body > h1,
+            html.embed-mode body > p,
+            html.embed-mode .landing,
+            html.embed-mode .landing-actions,
+            html.embed-mode .tips-card,
+            html.embed-mode #statusBox {
+                display: none !important;
+            }
+            body.embed-mode .landing {
+                display: none !important;
+            }
+            body.embed-mode .verify-dialog {
+                position: fixed;
+                inset: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                justify-content: stretch;
+                padding: 0;
+                z-index: 1;
+            }
+            body.embed-mode .verify-dialog-backdrop {
+                display: none;
+            }
+            body.embed-mode .verify-dialog-panel {
+                position: relative;
+                width: 100%;
+                max-width: none;
+                max-height: none;
+                height: 100%;
+                flex: 1;
+                min-height: 0;
+                overflow: hidden;
+                display: block;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body.embed-mode .verify-dialog-header {
+                display: none;
+            }
+            body.embed-mode .verify-dialog-header .dialog-close {
+                display: none;
+            }
+            body.embed-mode .stream-wrap {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                min-height: 0;
+            }
+            body.embed-mode .stage {
+                width: 100%;
+                height: 100%;
+                min-height: 0;
+                flex: none;
+                aspect-ratio: auto;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            body.embed-mode .challenge-caption {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 40;
+                margin-top: 0;
+                padding: 10px 12px 12px;
+                background: linear-gradient(
+                    180deg,
+                    rgba(15, 23, 42, 0) 0%,
+                    rgba(15, 23, 42, 0.82) 55%
+                );
+                pointer-events: none;
+            }
+            /* nowBanner shows the live cue + timer on the stage */
+            body.embed-mode .challenge-caption:not(.pass):not(.fail) {
+                display: none !important;
+            }
+            .challenge-caption:not(.pass):not(.fail):not(.empty) {
+                display: none;
+            }
+            body.embed-mode .dialog-metrics {
+                display: none !important;
+            }
+            .camera-switch {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                z-index: 45;
+                display: flex;
+                gap: 6px;
+                pointer-events: auto;
+            }
+            .camera-switch.hidden {
+                display: none;
+            }
+            .camera-switch-btn {
+                border: 1px solid rgba(148, 163, 184, 0.55);
+                background: rgba(15, 23, 42, 0.78);
+                color: #f8fafc;
+                font-size: 0.72rem;
+                font-weight: 700;
+                letter-spacing: 0.02em;
+                border-radius: 999px;
+                padding: 6px 12px;
+                cursor: pointer;
+            }
+            .camera-switch-btn.active {
+                border-color: #38bdf8;
+                background: rgba(14, 116, 144, 0.88);
+            }
+            .camera-switch-btn:disabled {
+                opacity: 0.45;
+                cursor: not-allowed;
+            }
+
+            .stream-wrap {
+                width: 100%;
+            }
+            .stage {
+                position: relative;
+                width: 100%;
+                aspect-ratio: 4 / 3;
+                border-radius: 16px;
+                overflow: hidden;
+                background: #111827;
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+                --oval-cx: 50%;
+                --oval-cy: 44%;
+                --oval-w: 48%;
+                --oval-h: 62%;
+            }
+            canvas {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                transform: none;
+            }
+            /*
+             * iOS canvas-capture: hide <video>, preview on canvas (no native LIVE UI).
+             * iOS inline fallback (very old Safari): visible video + canvas overlay.
+             * Android / desktop: hidden video, painted onto canvas.
+             */
+            html.ios-canvas-capture #video {
+                display: none !important;
+                visibility: hidden !important;
+                width: 0 !important;
+                height: 0 !important;
+                position: absolute !important;
+                pointer-events: none !important;
+            }
+            html.ios-canvas-capture #canvas {
+                z-index: 1;
+                pointer-events: none;
+                background: #111827;
+            }
+            html.ios-inline-fallback #video {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                opacity: 1;
+                pointer-events: none;
+                -webkit-touch-callout: none;
+                z-index: 0;
+            }
+            html.ios-inline-fallback #canvas {
+                z-index: 1;
+                pointer-events: none;
+                background: transparent;
+            }
+            html:not(.ios-safari) #video {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                opacity: 0;
+                pointer-events: none;
+                -webkit-touch-callout: none;
+                z-index: 0;
+            }
+            html:not(.ios-safari) #canvas {
+                z-index: 1;
+                pointer-events: none;
+                background: #111827;
+            }
+            .stage.mirror-preview video,
+            .stage.mirror-preview canvas {
+                transform: scaleX(-1);
+            }
+            #canvas.mask-hidden {
+                visibility: hidden;
+                pointer-events: none;
+            }
+            .stage-busy {
+                position: absolute;
+                inset: 0;
+                z-index: 30;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 16px;
+                background: rgba(15, 23, 42, 0.72);
+                backdrop-filter: blur(4px);
+                pointer-events: none;
+            }
+            .stage-busy.hidden {
+                display: none;
+            }
+            .spinner {
+                width: 52px;
+                height: 52px;
+                border: 4px solid rgba(148, 163, 184, 0.35);
+                border-top-color: #38bdf8;
+                border-radius: 50%;
+                animation: spin 0.85s linear infinite;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            .stage-busy-label {
+                font-size: 1rem;
+                font-weight: 600;
+                color: #e2e8f0;
+                text-align: center;
+                padding: 0 20px;
+            }
+            .result-banner {
+                position: absolute;
+                inset: 0;
+                z-index: 35;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 12px;
+                padding: 24px;
+                text-align: center;
+                pointer-events: none;
+            }
+            .result-banner.hidden {
+                display: none;
+            }
+            .result-banner.pass {
+                background: rgba(6, 95, 70, 0.88);
+            }
+            .result-banner.fail {
+                background: rgba(127, 29, 29, 0.88);
+            }
+            .result-icon {
+                width: 72px;
+                height: 72px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 2.25rem;
+                font-weight: 800;
+                color: #fff;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+            }
+            .result-banner.pass .result-icon {
+                background: #10b981;
+            }
+            .result-banner.fail .result-icon {
+                background: #ef4444;
+            }
+            .result-title {
+                font-size: 1.35rem;
+                font-weight: 800;
+                color: #fff;
+                margin: 0;
+            }
+            .result-detail {
+                font-size: 0.95rem;
+                color: rgba(255, 255, 255, 0.9);
+                margin: 0;
+                max-width: 280px;
+                line-height: 1.4;
+            }
+            .result-retry-btn {
+                pointer-events: auto;
+                margin-top: 8px;
+                padding: 10px 22px;
+                border: none;
+                border-radius: 999px;
+                font-size: 0.95rem;
+                font-weight: 700;
+                color: #7f1d1d;
+                background: #fff;
+                cursor: pointer;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+            }
+            .result-retry-btn:hover {
+                background: #fef2f2;
+            }
+            .result-retry-btn:disabled {
+                opacity: 0.55;
+                cursor: not-allowed;
+            }
+            .result-retry-btn.hidden {
+                display: none;
+            }
+            .overlay {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                border: 3px solid rgba(255, 255, 255, 0.15);
+                z-index: 5;
+            }
+            .action-indicator {
+                position: absolute;
+                z-index: 20;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                pointer-events: none;
+                transform: translate(-50%, -50%);
+                color: #38bdf8;
+                transition:
+                    left 0.12s ease,
+                    top 0.12s ease,
+                    color 0.2s;
+            }
+            .action-indicator.hidden {
+                display: none;
+            }
+            .action-ring {
+                position: relative;
+                width: 72px;
+                height: 72px;
+                border-radius: 50%;
+                border: 2px solid rgba(255, 255, 255, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: indicator-pulse 1.1s ease-in-out infinite;
+            }
+            .action-ring::after {
+                content: "";
+                position: absolute;
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                border: 2px solid currentColor;
+                opacity: 0.9;
+            }
+            .action-arrow {
+                position: absolute;
+                width: 0;
+                height: 0;
+                z-index: 1;
+                filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.45));
+            }
+            .action-indicator.dir-left .action-arrow {
+                border-top: 9px solid transparent;
+                border-bottom: 9px solid transparent;
+                border-right: 14px solid currentColor;
+                margin-left: -6px;
+            }
+            .action-indicator.dir-right .action-arrow {
+                border-top: 9px solid transparent;
+                border-bottom: 9px solid transparent;
+                border-left: 14px solid currentColor;
+                margin-left: 6px;
+            }
+            .action-indicator.dir-up .action-arrow {
+                border-left: 9px solid transparent;
+                border-right: 9px solid transparent;
+                border-bottom: 14px solid currentColor;
+                margin-top: -6px;
+            }
+            .action-indicator.dir-down .action-arrow {
+                border-left: 9px solid transparent;
+                border-right: 9px solid transparent;
+                border-top: 14px solid currentColor;
+                margin-top: 6px;
+            }
+            .action-indicator:not(.dir-left):not(.dir-right):not(.dir-up):not(
+                    .dir-down
+                )
+                .action-arrow {
+                display: none;
+            }
+            .action-label {
+                margin-top: 8px;
+                font-size: 0.82rem;
+                font-weight: 700;
+                color: #fff;
+                text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+                white-space: nowrap;
+            }
+            @keyframes indicator-pulse {
+                0%,
+                100% {
+                    transform: scale(1);
+                    opacity: 0.75;
+                }
+                50% {
+                    transform: scale(1.06);
+                    opacity: 1;
+                }
+            }
+            .challenge-caption {
+                margin-top: 14px;
+                text-align: center;
+                font-size: 1.35rem;
+                font-weight: 700;
+                letter-spacing: 0.03em;
+                color: #f8fafc;
+                min-height: 1.75rem;
+                direction: ltr;
+                unicode-bidi: isolate;
+                transform: none;
+            }
+            .challenge-caption.pass {
+                color: #34d399;
+            }
+            .challenge-caption.fail {
+                color: #f87171;
+            }
+            .challenge-caption.empty {
+                visibility: hidden;
+            }
+            .snapshot-gallery {
+                display: flex;
+                gap: 10px;
+                justify-content: center;
+                flex-wrap: wrap;
+                margin-top: 14px;
+                padding: 0 4px;
+            }
+            .snapshot-gallery.hidden {
+                display: none;
+            }
+            .snapshot-gallery img {
+                width: 76px;
+                height: 76px;
+                object-fit: cover;
+                border-radius: 12px;
+                border: 2px solid #34d399;
+                background: #111827;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+            }
+            .status {
+                padding: 10px 12px;
+                border-radius: 8px;
+                background: #334155;
+            }
+            .status.pass {
+                background: #065f46;
+            }
+            .status.fail {
+                background: #7f1d1d;
+            }
+            button {
+                margin-top: 4px;
+                padding: 10px 16px;
+                border: 0;
+                border-radius: 8px;
+                background: #2563eb;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            #submitBtn {
+                display: none;
+            }
+            .dialog-metrics {
+                margin-top: 10px;
+                font-size: 0.85rem;
+                color: #94a3b8;
+                font-family: ui-monospace, monospace;
+                min-height: 1.25rem;
+            }
+            .face-mask-layer {
+                position: absolute;
+                inset: 0;
+                z-index: 7;
+                pointer-events: none;
+            }
+            .face-mask-layer.hidden {
+                display: none;
+            }
+            .face-mask-blur {
+                position: absolute;
+                inset: 0;
+                backdrop-filter: blur(7px) brightness(0.55);
+                -webkit-backdrop-filter: blur(7px) brightness(0.55);
+                mask-image: radial-gradient(
+                    ellipse var(--oval-w) var(--oval-h) at var(--oval-cx)
+                        var(--oval-cy),
+                    transparent 54%,
+                    rgba(0, 0, 0, 0.4) 70%,
+                    black 100%
+                );
+                -webkit-mask-image: radial-gradient(
+                    ellipse var(--oval-w) var(--oval-h) at var(--oval-cx)
+                        var(--oval-cy),
+                    transparent 54%,
+                    rgba(0, 0, 0, 0.4) 70%,
+                    black 100%
+                );
+            }
+            .face-oval-frame {
+                position: absolute;
+                left: var(--oval-cx);
+                top: var(--oval-cy);
+                width: var(--oval-w);
+                height: var(--oval-h);
+                transform: translate(-50%, -50%);
+                z-index: 9;
+                pointer-events: none;
+                animation: oval-breathe 2.2s ease-in-out infinite;
+            }
+            .face-oval-frame.hidden {
+                display: none;
+            }
+            .face-oval-frame.step-face {
+                animation: oval-breathe-strong 1.4s ease-in-out infinite;
+            }
+            .face-oval-outer {
+                position: absolute;
+                inset: -14px;
+                z-index: 0;
+                pointer-events: none;
+            }
+            .face-oval-frame.step-face .outer-oval-ring {
+                stroke: rgba(52, 211, 153, 0.85);
+                stroke-width: 3.5;
+            }
+            @keyframes oval-breathe {
+                0%,
+                100% {
+                    transform: translate(-50%, -50%) scale(1);
+                }
+                50% {
+                    transform: translate(-50%, -50%) scale(1.02);
+                }
+            }
+            @keyframes oval-breathe-strong {
+                0%,
+                100% {
+                    transform: translate(-50%, -50%) scale(1);
+                }
+                50% {
+                    transform: translate(-50%, -50%) scale(1.04);
+                }
+            }
+            .coach-avatar {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                z-index: 28;
+                width: 80px;
+                padding: 8px 8px 6px;
+                border-radius: 14px;
+                background: rgba(15, 23, 42, 0.88);
+                border: 1px solid rgba(56, 189, 248, 0.45);
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+                pointer-events: none;
+            }
+            .coach-avatar.hidden {
+                display: none;
+            }
+            .coach-avatar.step-ok {
+                border-color: rgba(52, 211, 153, 0.65);
+                background: rgba(6, 95, 70, 0.9);
+            }
+            .coach-svg {
+                display: block;
+                width: 64px;
+                height: 80px;
+                margin: 0 auto;
+                overflow: visible;
+            }
+            .coach-head-group {
+                transform-origin: 40px 52px;
+                transition: transform 0.35s ease;
+            }
+            .coach-face-features {
+                transform-origin: 40px 48px;
+            }
+            .coach-head {
+                fill: #fde68a;
+                stroke: #1e293b;
+                stroke-width: 2;
+            }
+            .coach-eye {
+                fill: #1e293b;
+                transform-origin: center;
+                transition: transform 0.15s ease;
+            }
+            .coach-mouth {
+                fill: none;
+                stroke: #1e293b;
+                stroke-width: 2.5;
+                stroke-linecap: round;
+            }
+            .coach-mouth-neutral {
+                opacity: 1;
+            }
+            .coach-mouth-smile {
+                opacity: 0;
+            }
+            .coach-dir {
+                fill: #38bdf8;
+                opacity: 0;
+                transition: opacity 0.2s;
+            }
+            .coach-timer {
+                display: block;
+                margin-top: 4px;
+                text-align: center;
+                font-size: 0.72rem;
+                font-weight: 800;
+                color: #94a3b8;
+                font-variant-numeric: tabular-nums;
+            }
+            .coach-timer.urgent {
+                color: #fca5a5;
+            }
+            .coach-avatar.pose-blink .coach-eye {
+                animation: coach-eye-blink 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-eye-blink {
+                0%,
+                40%,
+                100% {
+                    transform: scaleY(1);
+                }
+                48% {
+                    transform: scaleY(0.08);
+                }
+            }
+            .coach-avatar.pose-left .coach-head-group {
+                animation: coach-turn-left 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-turn-left {
+                0%,
+                100% {
+                    transform: rotate(0deg) translateX(0) scaleX(1);
+                }
+                50% {
+                    transform: rotate(-26deg) translateX(-5px) scaleX(0.88);
+                }
+            }
+            .coach-avatar.pose-left .coach-face-features {
+                animation: coach-turn-left-features 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-turn-left-features {
+                0%,
+                100% {
+                    transform: translateX(0);
+                }
+                50% {
+                    transform: translateX(-3px);
+                }
+            }
+            .coach-avatar.pose-left .coach-eye-l {
+                animation: coach-eye-hide-left 1.15s ease-in-out infinite;
+            }
+            .coach-avatar.pose-left .coach-eye-r {
+                animation: coach-eye-show-turn 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-eye-hide-left {
+                0%,
+                100% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+                50% {
+                    transform: scale(0.35, 1);
+                    opacity: 0.45;
+                }
+            }
+            @keyframes coach-eye-show-turn {
+                0%,
+                100% {
+                    transform: translateX(0) scale(1);
+                }
+                50% {
+                    transform: translateX(2px) scale(1.08, 1);
+                }
+            }
+            .coach-avatar.pose-right .coach-head-group {
+                animation: coach-turn-right 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-turn-right {
+                0%,
+                100% {
+                    transform: rotate(0deg) translateX(0) scaleX(1);
+                }
+                50% {
+                    transform: rotate(26deg) translateX(5px) scaleX(0.88);
+                }
+            }
+            .coach-avatar.pose-right .coach-face-features {
+                animation: coach-turn-right-features 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-turn-right-features {
+                0%,
+                100% {
+                    transform: translateX(0);
+                }
+                50% {
+                    transform: translateX(3px);
+                }
+            }
+            .coach-avatar.pose-right .coach-eye-r {
+                animation: coach-eye-hide-right 1.15s ease-in-out infinite;
+            }
+            .coach-avatar.pose-right .coach-eye-l {
+                animation: coach-eye-show-turn 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-eye-hide-right {
+                0%,
+                100% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+                50% {
+                    transform: scale(0.35, 1);
+                    opacity: 0.45;
+                }
+            }
+            .coach-avatar.pose-up .coach-head-group {
+                transform-origin: 40px 60px;
+                animation: coach-pitch-up 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-pitch-up {
+                0%,
+                100% {
+                    transform: rotate(0deg);
+                }
+                50% {
+                    transform: rotate(-22deg);
+                }
+            }
+            .coach-avatar.pose-up .coach-face-features {
+                animation: coach-pitch-up-eyes 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-pitch-up-eyes {
+                0%,
+                100% {
+                    transform: translateY(0);
+                }
+                50% {
+                    transform: translateY(-4px);
+                }
+            }
+            .coach-avatar.pose-up .coach-mouth-neutral {
+                animation: coach-pitch-up-mouth 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-pitch-up-mouth {
+                0%,
+                100% {
+                    transform: translateY(0);
+                }
+                50% {
+                    transform: translateY(-2px);
+                }
+            }
+            .coach-avatar.pose-down .coach-head-group {
+                transform-origin: 40px 34px;
+                animation: coach-pitch-down 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-pitch-down {
+                0%,
+                100% {
+                    transform: rotate(0deg);
+                }
+                50% {
+                    transform: rotate(22deg);
+                }
+            }
+            .coach-avatar.pose-down .coach-face-features {
+                animation: coach-pitch-down-eyes 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-pitch-down-eyes {
+                0%,
+                100% {
+                    transform: translateY(0);
+                }
+                50% {
+                    transform: translateY(5px);
+                }
+            }
+            .coach-avatar.pose-down .coach-mouth-neutral {
+                animation: coach-pitch-down-mouth 1.15s ease-in-out infinite;
+            }
+            @keyframes coach-pitch-down-mouth {
+                0%,
+                100% {
+                    transform: translateY(0);
+                }
+                50% {
+                    transform: translateY(3px);
+                }
+            }
+            .coach-avatar.pose-smile .coach-mouth-smile {
+                opacity: 1;
+            }
+            .coach-avatar.pose-smile .coach-mouth-neutral {
+                opacity: 0;
+            }
+            .coach-avatar.pose-smile .coach-head-group {
+                animation: coach-smile-bob 1.2s ease-in-out infinite;
+            }
+            @keyframes coach-smile-bob {
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.04);
+                }
+            }
+            .coach-avatar.pose-face .coach-head-group {
+                animation: coach-center-hold 2s ease-in-out infinite;
+            }
+            @keyframes coach-center-hold {
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.02);
+                }
+            }
+            .coach-avatar.pose-left .coach-dir-left,
+            .coach-avatar.pose-right .coach-dir-right,
+            .coach-avatar.pose-up .coach-dir-up,
+            .coach-avatar.pose-down .coach-dir-down {
+                opacity: 1;
+                animation: coach-dir-pulse 0.9s ease-in-out infinite;
+            }
+            @keyframes coach-dir-pulse {
+                0%,
+                100% {
+                    transform: scale(1);
+                    opacity: 0.85;
+                }
+                50% {
+                    transform: scale(1.15);
+                    opacity: 1;
+                }
+            }
+            .now-banner {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 26;
+                padding: 10px 14px 12px;
+                background: linear-gradient(
+                    to top,
+                    rgba(15, 23, 42, 0.92),
+                    transparent
+                );
+                pointer-events: none;
+            }
+            .now-banner.hidden {
+                display: none;
+            }
+            .now-banner-inner {
+                text-align: center;
+                padding-bottom: 8px;
+            }
+            .now-kicker {
+                display: none;
+            }
+            .now-action {
+                font-size: 1.05rem;
+                font-weight: 800;
+                color: #f8fafc;
+                line-height: 1.2;
+                text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+            }
+            .now-detail {
+                display: none;
+            }
+            .now-timer {
+                display: inline-block;
+                margin-top: 8px;
+                font-size: 0.78rem;
+                font-weight: 700;
+                color: #94a3b8;
+                padding: 3px 10px;
+                border-radius: 999px;
+                background: rgba(51, 65, 85, 0.85);
+            }
+            .now-timer.urgent {
+                color: #fca5a5;
+                background: rgba(127, 29, 29, 0.55);
+            }
+            .step-progress {
+                display: flex;
+                justify-content: center;
+                gap: 6px;
+                padding-top: 2px;
+            }
+            .progress-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: rgba(148, 163, 184, 0.35);
+                transition:
+                    transform 0.2s,
+                    background 0.2s;
+            }
+            .progress-dot.active {
+                background: #38bdf8;
+                transform: scale(1.25);
+                box-shadow: 0 0 8px rgba(56, 189, 248, 0.65);
+            }
+            .progress-dot.done {
+                background: #34d399;
+            }
+            .guide-card {
+                display: none !important;
+            }
+            .action-indicator {
+                display: none !important;
+            }
+            .tips-card {
+                width: 100%;
+                background: rgba(30, 41, 59, 0.85);
+                border: 1px solid rgba(148, 163, 184, 0.25);
+                border-radius: 12px;
+                padding: 0;
+                font-size: 0.88rem;
+                color: #cbd5e1;
+            }
+            .tips-card summary {
+                cursor: pointer;
+                padding: 12px 14px;
+                font-weight: 600;
+                color: #e2e8f0;
+                list-style: none;
+            }
+            .tips-card summary::-webkit-details-marker {
+                display: none;
+            }
+            .tips-card summary::after {
+                content: " ▾";
+                float: right;
+                color: #94a3b8;
+            }
+            .tips-card[open] summary::after {
+                content: " ▴";
+            }
+            .tips-card ul {
+                margin: 0;
+                padding: 0 14px 14px 28px;
+                line-height: 1.55;
+            }
+            .tips-card li {
+                margin-bottom: 6px;
+            }
+            .oval-direction-arcs {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 2;
+                pointer-events: none;
+                overflow: visible;
+            }
+            .outer-oval-ring {
+                fill: none;
+                stroke: rgba(52, 211, 153, 0.45);
+                stroke-width: 3;
+                vector-effect: non-scaling-stroke;
+            }
+            .edge-guide {
+                position: absolute;
+                inset: -18px;
+                z-index: 4;
+                pointer-events: none;
+            }
+            .edge-guide.hidden {
+                display: none;
+            }
+            .edge-arrow {
+                position: absolute;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #f87171;
+                opacity: 0;
+                transition: opacity 0.2s;
+            }
+            .edge-symbol {
+                font-size: 1.5rem;
+                font-weight: 800;
+                line-height: 1;
+                text-shadow: 0 0 10px rgba(248, 113, 113, 0.75);
+            }
+            .edge-arrow.active {
+                opacity: 1;
+            }
+            .edge-arrow.active .edge-symbol {
+                animation: edge-symbol-pulse 1s ease-in-out infinite;
+            }
+            .edge-left {
+                left: 0;
+                top: 50%;
+                transform: translate(-50%, -50%);
+            }
+            .edge-right {
+                left: 100%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+            }
+            .edge-top {
+                left: 50%;
+                top: 0;
+                transform: translate(-50%, -50%);
+            }
+            .edge-bottom {
+                left: 50%;
+                top: 100%;
+                transform: translate(-50%, -50%);
+            }
+            @keyframes edge-symbol-pulse {
+                0%,
+                100% {
+                    transform: scale(1);
+                    opacity: 0.8;
+                }
+                50% {
+                    transform: scale(1.15);
+                    opacity: 1;
+                }
+            }
+            .dir-arc {
+                fill: none;
+                stroke: #f87171;
+                stroke-width: 9;
+                vector-effect: non-scaling-stroke;
+                stroke-linecap: round;
+                opacity: 0;
+                transition: opacity 0.2s;
+            }
+            .dir-arc.active {
+                opacity: 1;
+                animation: dir-arc-blink 0.85s ease-in-out infinite;
+            }
+            @keyframes dir-arc-blink {
+                0%,
+                100% {
+                    opacity: 0.45;
+                }
+                50% {
+                    opacity: 1;
+                }
+            }
+            .no-face-hint {
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                z-index: 25;
+                max-width: 85%;
+                padding: 12px 18px;
+                border-radius: 12px;
+                background: rgba(127, 29, 29, 0.88);
+                border: 1px solid rgba(248, 113, 113, 0.5);
+                color: #fecaca;
+                font-size: 0.95rem;
+                font-weight: 600;
+                text-align: center;
+                line-height: 1.35;
+                pointer-events: none;
+            }
+            .no-face-hint.hidden {
+                display: none;
+            }
+            .face-fit-hint {
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 8px;
+                z-index: 24;
+                text-align: center;
+                font-size: 0.82rem;
+                font-weight: 600;
+                color: #fde68a;
+                text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+                pointer-events: none;
+            }
+            .face-fit-hint.hidden {
+                display: none;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .face-oval-frame,
+                .coach-avatar.pose-blink .coach-eye,
+                .coach-avatar.pose-left .coach-head-group,
+                .coach-avatar.pose-right .coach-head-group,
+                .coach-avatar.pose-up .coach-head-group,
+                .coach-avatar.pose-down .coach-head-group,
+                .dir-arc.active,
+                .edge-arrow.active .edge-symbol {
+                    animation: none !important;
+                    opacity: 0.85;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Active Liveness Check</h1>
+        <p>
+            Start verification to open the camera window. Fit your face inside
+            the green oval and follow the blinking arc and arrow when prompted.
+        </p>
+
+        <div class="landing">
+            <button type="button" id="startVerificationBtn" class="btn-start">
+                Start Verification
+            </button>
+            <div id="statusBox" class="status">
+                Preparing… Click Start Verification when ready.
+            </div>
+            <div class="landing-actions">
+                <button type="button" id="restartBtn" disabled>
+                    Verify again
+                </button>
+            </div>
+            <div
+                id="snapshotGallery"
+                class="snapshot-gallery hidden"
+                aria-label="Verification face snapshots"
+            ></div>
+            <details class="tips-card">
+                <summary>Tips for best results</summary>
+                <ul>
+                    <li>
+                        Use even, front-facing light — avoid strong backlight or
+                        shadows on your face.
+                    </li>
+                    <li>
+                        Hold the device at eye level; keep your whole face
+                        inside the green oval.
+                    </li>
+                    <li>
+                        Remove sunglasses or a mask if possible; plain glasses
+                        are usually fine.
+                    </li>
+                    <li>
+                        Move slowly for head turns and look-up / look-down cues.
+                    </li>
+                    <li>
+                        Complete each action within the timer; follow the coach,
+                        blinking arc, and arrow on the oval.
+                    </li>
+                    <li>
+                        Use Chrome or Edge on desktop, or Safari on iPhone, and
+                        allow camera access when prompted.
+                    </li>
+                </ul>
+            </details>
+        </div>
+
+        <div
+            id="verifyDialog"
+            class="verify-dialog hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="verifyDialogTitle"
+            aria-hidden="true"
+        >
+            <div class="verify-dialog-backdrop" id="verifyDialogBackdrop"></div>
+            <div class="verify-dialog-panel">
+                <header class="verify-dialog-header">
+                    <h2 id="verifyDialogTitle">Active face verification</h2>
+                    <button
+                        type="button"
+                        id="closeDialogBtn"
+                        class="dialog-close"
+                        aria-label="Close verification window"
+                        disabled
+                    >
+                        ×
+                    </button>
+                </header>
+                <div class="stream-wrap">
+                    <div class="stage" id="stage">
+                        <video
+                            id="video"
+                            playsinline
+                            webkit-playsinline="true"
+                            autoplay
+                            muted
+                            defaultmuted
+                            disablepictureinpicture
+                            disableremoteplayback
+                            controlslist="nodownload nofullscreen noremoteplayback"
+                            x-webkit-airplay="deny"
+                            preload="metadata"
+                        ></video>
+                        <canvas id="canvas"></canvas>
+                        <div class="overlay"></div>
+                        <div
+                            id="cameraSwitch"
+                            class="camera-switch hidden"
+                            aria-label="Camera selection"
+                        >
+                            <button
+                                type="button"
+                                id="cameraFrontBtn"
+                                class="camera-switch-btn active"
+                            >
+                                Front
+                            </button>
+                            <button
+                                type="button"
+                                id="cameraBackBtn"
+                                class="camera-switch-btn"
+                            >
+                                Back
+                            </button>
+                        </div>
+                        <div
+                            id="faceMaskLayer"
+                            class="face-mask-layer hidden"
+                            aria-hidden="true"
+                        >
+                            <div class="face-mask-blur"></div>
+                        </div>
+                        <div
+                            id="faceOvalFrame"
+                            class="face-oval-frame hidden"
+                            aria-hidden="true"
+                        >
+                            <div class="face-oval-outer">
+                                <svg
+                                    class="oval-direction-arcs"
+                                    viewBox="0 0 100 130"
+                                    preserveAspectRatio="none"
+                                    aria-hidden="true"
+                                >
+                                    <ellipse
+                                        id="outerOvalRing"
+                                        class="outer-oval-ring"
+                                        vector-effect="non-scaling-stroke"
+                                    />
+                                    <path
+                                        class="dir-arc dir-arc-left"
+                                        data-edge="left"
+                                        vector-effect="non-scaling-stroke"
+                                    />
+                                    <path
+                                        class="dir-arc dir-arc-right"
+                                        data-edge="right"
+                                        vector-effect="non-scaling-stroke"
+                                    />
+                                    <path
+                                        class="dir-arc dir-arc-top"
+                                        data-edge="top"
+                                        vector-effect="non-scaling-stroke"
+                                    />
+                                    <path
+                                        class="dir-arc dir-arc-bottom"
+                                        data-edge="bottom"
+                                        vector-effect="non-scaling-stroke"
+                                    />
+                                </svg>
+                                <div
+                                    id="edgeGuide"
+                                    class="edge-guide hidden"
+                                    aria-hidden="true"
+                                >
+                                    <div
+                                        class="edge-arrow edge-left"
+                                        data-edge="left"
+                                        aria-hidden="true"
+                                    >
+                                        <span class="edge-symbol">◀</span>
+                                    </div>
+                                    <div
+                                        class="edge-arrow edge-right"
+                                        data-edge="right"
+                                        aria-hidden="true"
+                                    >
+                                        <span class="edge-symbol">▶</span>
+                                    </div>
+                                    <div
+                                        class="edge-arrow edge-top"
+                                        data-edge="top"
+                                        aria-hidden="true"
+                                    >
+                                        <span class="edge-symbol">▲</span>
+                                    </div>
+                                    <div
+                                        class="edge-arrow edge-bottom"
+                                        data-edge="bottom"
+                                        aria-hidden="true"
+                                    >
+                                        <span class="edge-symbol">▼</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            id="faceFitHint"
+                            class="face-fit-hint hidden"
+                            aria-live="polite"
+                        ></div>
+                        <div
+                            id="noFaceHint"
+                            class="no-face-hint hidden"
+                            aria-live="assertive"
+                        >
+                            No face detected — center yourself in the green oval
+                        </div>
+                        <div
+                            id="coachAvatar"
+                            class="coach-avatar hidden"
+                            aria-live="polite"
+                            aria-hidden="true"
+                        >
+                            <svg
+                                class="coach-svg"
+                                viewBox="0 0 80 88"
+                                aria-hidden="true"
+                            >
+                                <g class="coach-head-group">
+                                    <ellipse
+                                        class="coach-head"
+                                        cx="40"
+                                        cy="46"
+                                        rx="26"
+                                        ry="30"
+                                    />
+                                    <g class="coach-face-features">
+                                        <ellipse
+                                            class="coach-eye coach-eye-l"
+                                            cx="29"
+                                            cy="40"
+                                            rx="4.5"
+                                            ry="5.5"
+                                        />
+                                        <ellipse
+                                            class="coach-eye coach-eye-r"
+                                            cx="51"
+                                            cy="40"
+                                            rx="4.5"
+                                            ry="5.5"
+                                        />
+                                        <path
+                                            class="coach-mouth coach-mouth-neutral"
+                                            d="M 30 58 Q 40 64 50 58"
+                                        />
+                                        <path
+                                            class="coach-mouth coach-mouth-smile"
+                                            d="M 28 56 Q 40 70 52 56"
+                                        />
+                                    </g>
+                                </g>
+                                <polygon
+                                    class="coach-dir coach-dir-left"
+                                    points="4,44 14,40 14,48"
+                                />
+                                <polygon
+                                    class="coach-dir coach-dir-right"
+                                    points="76,44 66,40 66,48"
+                                />
+                                <polygon
+                                    class="coach-dir coach-dir-up"
+                                    points="40,4 36,14 44,14"
+                                />
+                                <polygon
+                                    class="coach-dir coach-dir-down"
+                                    points="40,84 36,74 44,74"
+                                />
+                            </svg>
+                            <span class="coach-timer" id="coachTimer"></span>
+                        </div>
+                        <div
+                            id="guideCard"
+                            class="guide-card hidden"
+                            aria-live="polite"
+                        >
+                            <span
+                                class="guide-icon"
+                                id="guideIcon"
+                                aria-hidden="true"
+                            ></span>
+                            <div class="guide-text">
+                                <div class="guide-kicker" id="guideKicker">
+                                    Now
+                                </div>
+                                <div class="guide-title" id="guideTitle"></div>
+                                <div class="guide-hint" id="guideHint"></div>
+                            </div>
+                            <span class="guide-step" id="guideStep"></span>
+                        </div>
+                        <div
+                            id="nowBanner"
+                            class="now-banner hidden"
+                            aria-live="polite"
+                        >
+                            <div class="now-banner-inner">
+                                <div class="now-kicker">Do this now</div>
+                                <div class="now-action" id="nowAction"></div>
+                                <div class="now-detail" id="nowDetail"></div>
+                                <div class="now-timer" id="nowTimer"></div>
+                            </div>
+                            <div
+                                class="step-progress"
+                                id="stepProgress"
+                                aria-hidden="true"
+                            ></div>
+                        </div>
+                        <div
+                            id="actionIndicator"
+                            class="action-indicator hidden"
+                            aria-hidden="true"
+                        >
+                            <div class="action-ring">
+                                <div class="action-arrow"></div>
+                            </div>
+                            <span class="action-label">Look here</span>
+                        </div>
+                        <div
+                            id="stageProcessing"
+                            class="stage-busy hidden"
+                            aria-live="polite"
+                        >
+                            <div class="spinner" aria-hidden="true"></div>
+                            <span class="stage-busy-label"
+                                >Verifying liveness with server…</span
+                            >
+                        </div>
+                        <div
+                            id="stageResult"
+                            class="result-banner hidden"
+                            aria-live="polite"
+                        >
+                            <div
+                                class="result-icon"
+                                id="resultIcon"
+                                aria-hidden="true"
+                            ></div>
+                            <p class="result-title" id="resultTitle"></p>
+                            <p class="result-detail" id="resultDetail"></p>
+                            <button
+                                type="button"
+                                id="resultRetryBtn"
+                                class="result-retry-btn hidden"
+                            >
+                                Try again
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div
+                    id="challengeCaption"
+                    class="challenge-caption empty"
+                ></div>
+                <div id="metrics" class="dialog-metrics"></div>
+            </div>
+        </div>
+
+        <canvas id="snapCanvas" hidden aria-hidden="true"></canvas>
+        <button id="submitBtn" type="button" hidden disabled>Submit</button>
+
+        <script type="module">
+            import {
+                FaceLandmarker,
+                FilesetResolver,
+                DrawingUtils,
+            } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+            const video = document.getElementById("video");
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            const stageEl = document.getElementById("stage");
+            const statusBox = document.getElementById("statusBox");
+            const startVerificationBtn = document.getElementById(
+                "startVerificationBtn",
+            );
+            const verifyDialog = document.getElementById("verifyDialog");
+            const closeDialogBtn = document.getElementById("closeDialogBtn");
+            const verifyDialogBackdrop = document.getElementById(
+                "verifyDialogBackdrop",
+            );
+            const restartBtn = document.getElementById("restartBtn");
+            const submitBtn = document.getElementById("submitBtn");
+            const metricsEl = document.getElementById("metrics");
+            const challengeCaption =
+                document.getElementById("challengeCaption");
+            const snapshotGallery = document.getElementById("snapshotGallery");
+            const snapCanvas = document.getElementById("snapCanvas");
+            const snapCtx = snapCanvas.getContext("2d");
+            const actionIndicator = document.getElementById("actionIndicator");
+            const actionLabel = actionIndicator.querySelector(".action-label");
+            const stageProcessing = document.getElementById("stageProcessing");
+            const stageResult = document.getElementById("stageResult");
+            const resultIcon = document.getElementById("resultIcon");
+            const resultTitle = document.getElementById("resultTitle");
+            const resultDetail = document.getElementById("resultDetail");
+            const resultRetryBtn = document.getElementById("resultRetryBtn");
+            const guideCard = document.getElementById("guideCard");
+            const guideIcon = document.getElementById("guideIcon");
+            const guideTitle = document.getElementById("guideTitle");
+            const guideHint = document.getElementById("guideHint");
+            const guideStep = document.getElementById("guideStep");
+            const guideKicker = document.getElementById("guideKicker");
+            const faceMaskLayer = document.getElementById("faceMaskLayer");
+            const faceOvalFrame = document.getElementById("faceOvalFrame");
+            const faceOvalOuter =
+                faceOvalFrame.querySelector(".face-oval-outer");
+            const edgeGuide = document.getElementById("edgeGuide");
+            const directionArcs = faceOvalFrame.querySelectorAll(".dir-arc");
+            const edgeArrows = edgeGuide.querySelectorAll(".edge-arrow");
+            const noFaceHint = document.getElementById("noFaceHint");
+            const faceFitHint = document.getElementById("faceFitHint");
+            const coachAvatar = document.getElementById("coachAvatar");
+            const coachTimer = document.getElementById("coachTimer");
+            const nowBanner = document.getElementById("nowBanner");
+            const nowAction = document.getElementById("nowAction");
+            const nowDetail = document.getElementById("nowDetail");
+            const nowTimer = document.getElementById("nowTimer");
+            const stepProgress = document.getElementById("stepProgress");
+            const cameraSwitch = document.getElementById("cameraSwitch");
+            const cameraFrontBtn = document.getElementById("cameraFrontBtn");
+            const cameraBackBtn = document.getElementById("cameraBackBtn");
+            const IS_MOBILE_PHONE =
+                /Android|iPhone|iPod/i.test(navigator.userAgent || "");
+            const IS_IOS =
+                /iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
+                (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+            /**
+             * Pick the best iOS camera path without opening native LIVE video UI.
+             * 1. ImageCapture — iOS 14.5+ Safari (most devices)
+             * 2. MediaStreamTrackProcessor — iOS 16.4+ Safari
+             * 3. Inline video fallback — oldest iOS (playsinline + canvas overlay)
+             */
+            function resolveCameraMode() {
+                if (!IS_IOS) return "video";
+                if (typeof ImageCapture !== "undefined") return "image-capture";
+                if (typeof MediaStreamTrackProcessor !== "undefined") {
+                    return "track-processor";
+                }
+                return "ios-inline";
+            }
+
+            const CAMERA_MODE = resolveCameraMode();
+            const USE_IOS_CANVAS_CAPTURE =
+                CAMERA_MODE === "image-capture" ||
+                CAMERA_MODE === "track-processor";
+            /** Android / desktop: canvas preview from hidden video (unchanged). */
+            const USE_CANVAS_PREVIEW = !IS_IOS || USE_IOS_CANVAS_CAPTURE;
+
+            if (IS_IOS) {
+                document.documentElement.classList.add("ios-safari");
+                document.documentElement.classList.add(
+                    USE_IOS_CANVAS_CAPTURE
+                        ? "ios-canvas-capture"
+                        : "ios-inline-fallback",
+                );
+            }
+            console.info("[liveness] camera mode:", CAMERA_MODE);
+
+            let preferredFacingMode = "user";
+            let canPickRearCamera = false;
+            let switchingCamera = false;
+            let cameraStream = null;
+            let imageCapture = null;
+            let trackProcessor = null;
+            let trackReader = null;
+            let frameWidth = 0;
+            let frameHeight = 0;
+            let frameBusy = false;
+
+            function usesMirroredPreview() {
+                return preferredFacingMode === "user";
+            }
+
+            /** Front camera preview is mirrored; rear camera uses natural orientation. */
+            function poseYaw(yaw) {
+                return usesMirroredPreview() ? yaw : -yaw;
+            }
+
+            function mapScreenX(normalizedX) {
+                return usesMirroredPreview() ? 1 - normalizedX : normalizedX;
+            }
+
+            function getScreenEdge(edge) {
+                if (!edge || usesMirroredPreview()) return edge;
+                if (edge === "left") return "right";
+                if (edge === "right") return "left";
+                return edge;
+            }
+
+            function getActionGuide(stepId) {
+                const guide = ACTION_GUIDES[stepId];
+                if (!guide || usesMirroredPreview()) return guide;
+                if (stepId === "left" || stepId === "right") {
+                    return { ...guide, offsetX: -guide.offsetX };
+                }
+                return guide;
+            }
+
+            function applyPreviewMirror() {
+                stageEl?.classList.toggle(
+                    "mirror-preview",
+                    usesMirroredPreview(),
+                );
+            }
+
+            const CHALLENGE_UI = {
+                face: {
+                    icon: "◎",
+                    now: "Center in oval",
+                    title: "Center your face",
+                    hint: "Move closer or back until your whole face fits inside the green oval.",
+                    detail: "Look straight at the camera and hold still.",
+                    edge: null,
+                    anim: null,
+                    canvasHint: "Fit face in oval",
+                },
+                left: {
+                    icon: "↰",
+                    now: "Turn left",
+                    title: "Turn head left",
+                    hint: "Turn toward the left side of the screen.",
+                    detail: "Turn toward the blinking arc on the left of the oval.",
+                    edge: "left",
+                    anim: "head",
+                    canvasHint: "Turn left ←",
+                },
+                right: {
+                    icon: "↱",
+                    now: "Turn right",
+                    title: "Turn head right",
+                    hint: "Turn toward the right side of the screen.",
+                    detail: "Turn toward the blinking arc on the right of the oval.",
+                    edge: "right",
+                    anim: "head-right",
+                    canvasHint: "Turn right →",
+                },
+                up: {
+                    icon: "↑",
+                    now: "Look up",
+                    title: "Look up",
+                    hint: "Tilt your chin up a little.",
+                    detail: "Tilt up toward the blinking arc at the top of the oval.",
+                    edge: "top",
+                    anim: null,
+                    canvasHint: "Tilt head up ↑",
+                },
+                down: {
+                    icon: "↓",
+                    now: "Look down",
+                    title: "Look down",
+                    hint: "Tilt your chin down a little.",
+                    detail: "Tilt down toward the blinking arc at the bottom of the oval.",
+                    edge: "bottom",
+                    anim: null,
+                    canvasHint: "Tilt head down ↓",
+                },
+                smile: {
+                    icon: "☺",
+                    now: "Smile",
+                    title: "Smile",
+                    hint: "A gentle, natural smile is enough.",
+                    detail: "Keep eyes open and face toward the camera.",
+                    edge: null,
+                    anim: "smile",
+                    canvasHint: "Smile 🙂",
+                },
+            };
+
+            const CHALLENGE_POOL = [
+                { id: "left", caption: "Turn your head left" },
+                { id: "right", caption: "Turn your head right" },
+                { id: "up", caption: "Look up" },
+                { id: "down", caption: "Look down" },
+                { id: "smile", caption: "Smile" },
+            ];
+
+            const FACE_PRIMER = { id: "face", caption: "Center your face" };
+
+            const ACTION_GUIDES = {
+                // Offsets in camera space; canvas is mirror-flipped so L/R offsets are swapped vs screen.
+                left: {
+                    label: "This way ←",
+                    color: "#38bdf8",
+                    dir: "left",
+                    offsetX: 0.14,
+                    offsetY: 0,
+                },
+                right: {
+                    label: "This way →",
+                    color: "#38bdf8",
+                    dir: "right",
+                    offsetX: -0.14,
+                    offsetY: 0,
+                },
+                up: {
+                    label: "Look up ↑",
+                    color: "#a78bfa",
+                    dir: "up",
+                    offsetX: 0,
+                    offsetY: -0.12,
+                },
+                down: {
+                    label: "Look down ↓",
+                    color: "#a78bfa",
+                    dir: "down",
+                    offsetX: 0,
+                    offsetY: 0.12,
+                },
+            };
+
+            const ACTION_LABELS = {
+                left: "Turn Left",
+                right: "Turn Right",
+                up: "Look up",
+                down: "Look down",
+                smile: "Smile",
+            };
+
+            /** Opposite head turn only — used with higher thresholds than step completion. */
+            const OPPOSITE_POSE_ACTION = {
+                left: "right",
+                right: "left",
+                up: "down",
+                down: "up",
+            };
+
+            const MESH_COLOR = "rgba(56, 189, 248, 0.25)";
+            const CONTOUR_COLOR = "rgba(52, 211, 153, 0.8)";
+
+            let activeSteps = [];
+            let faceLandmarker = null;
+            let drawingUtils = null;
+            let running = false;
+            let currentStep = 0;
+            let passed = false;
+            let failed = false;
+
+            let yawSamples = [];
+            let pitchSamples = [];
+            const POSE_WINDOW = 12;
+
+            /** +yaw = nose toward image right = user turns head left; −yaw = user turns right */
+            const YAW_USER_LEFT_MIN = 0.12;
+            const YAW_USER_RIGHT_MAX = -0.12;
+            const PITCH_UP_THRESHOLD = -0.12;
+            const PITCH_DOWN_THRESHOLD = 0.12;
+            const SMILE_THRESHOLD = 0.42;
+            const FACE_SIZE_MIN = 0.12;
+            const CHALLENGE_DURATION_MS = 12000;
+            const MAX_LIVENESS_ATTEMPTS = 3;
+            const WRONG_ACTION_GRACE_MS = 1000;
+            const WRONG_ACTION_CONFIRM_FRAMES = 24;
+            const WRONG_YAW_THRESHOLD = 0.24;
+            const WRONG_PITCH_THRESHOLD = 0.22;
+            const SNAPSHOT_MIN = 2;
+            const SNAPSHOT_MAX = 5;
+            // Snapshot capture gates are intentionally conservative in the original file.
+            // In embedded mode, users often complete challenges but don't stay "front" long
+            // enough to collect 2+ photos. Relax the thresholds slightly.
+            const SNAPSHOT_MIN_INTERVAL_MS = 450;
+            const FRONT_YAW_MAX = 0.11;
+            const FRONT_PITCH_MAX = 0.11;
+            const SNAPSHOT_OUTPUT_MIN = 480;
+            const SNAPSHOT_OUTPUT_MAX = 640;
+            const SNAPSHOT_JPEG_QUALITY = 0.95;
+
+            const POST_MESSAGE_TYPE = "INTERNAL_SBI_VERIFY_RESULT";
+            const POST_RETRY_TYPE = "INTERNAL_SBI_VERIFY_RETRY";
+            let hostResultSeq = 0;
+
+            function postResultToHost(message) {
+                try {
+                    const hostWindow =
+                        window.parent && window.parent !== window
+                            ? window.parent
+                            : window.opener;
+                    if (!hostWindow) return;
+                    hostWindow.postMessage(
+                        { type: POST_MESSAGE_TYPE, ...message },
+                        window.location.origin,
+                    );
+                } catch {
+                    // ignore
+                }
+            }
+
+            function postRetryToHost() {
+                try {
+                    const hostWindow =
+                        window.parent && window.parent !== window
+                            ? window.parent
+                            : window.opener;
+                    if (!hostWindow) return;
+                    hostWindow.postMessage(
+                        { type: POST_RETRY_TYPE, runId: RUN_ID() },
+                        window.location.origin,
+                    );
+                } catch {
+                    // ignore
+                }
+            }
+
+            function notifyHostVerifyResult({
+                ok,
+                payload = null,
+                error = null,
+            }) {
+                hostResultSeq += 1;
+                postResultToHost({
+                    ok,
+                    payload,
+                    error: error || undefined,
+                    resultSeq: hostResultSeq,
+                    runId: RUN_ID(),
+                });
+            }
+
+            const DEFAULT_VERIFY_ENDPOINT =
+                "https://auth.fayda.et/sbi/api/v1/sbi/verify";
+            const PAGE_SEARCH = new URLSearchParams(location.search);
+            const IS_IN_IFRAME = (() => {
+                try {
+                    return window.self !== window.top;
+                } catch {
+                    return true;
+                }
+            })();
+            const EMBED = PAGE_SEARCH.get("embed") === "1" || IS_IN_IFRAME;
+            const DEBUG_EMBED = PAGE_SEARCH.get("debug") === "1";
+
+            /** @type {{ runId: string, api: string, transactionId: string, env: string, purpose: string, domainUri: string, requestedScore: number, sources: Record<string,string> }} */
+            const embedRuntime = {
+                runId: "",
+                api: "",
+                transactionId: "",
+                env: "",
+                purpose: "",
+                domainUri: "",
+                requestedScore: 0,
+                sources: {},
+            };
+
+            function nonEmptyString(value) {
+                if (value == null) return null;
+                const text = String(value).trim();
+                return text.length ? text : null;
+            }
+
+            function normalizeDomainUri(uri) {
+                const raw =
+                    nonEmptyString(uri) ||
+                    nonEmptyString(window.location.origin);
+                if (!raw) return "https://auth.fayda.et";
+                try {
+                    const host = new URL(raw).hostname;
+                    if (host === "localhost" || host === "127.0.0.1") {
+                        try {
+                            const parentEnv =
+                                window.parent &&
+                                window.parent !== window &&
+                                window.parent._env_ &&
+                                window.parent._env_.SBI_DOMAIN_URI;
+                            const configured = nonEmptyString(parentEnv);
+                            if (configured)
+                                return configured.replace(/\/$/, "");
+                        } catch {
+                            // ignore
+                        }
+                        return "https://auth.fayda.et";
+                    }
+                } catch {
+                    return raw.replace(/\/$/, "");
+                }
+                return raw.replace(/\/$/, "");
+            }
+
+            function pickParam(name, hostOverride) {
+                if (
+                    hostOverride &&
+                    nonEmptyString(hostOverride[name]) != null
+                ) {
+                    embedRuntime.sources[name] = "postMessage";
+                    return nonEmptyString(hostOverride[name]);
+                }
+                const fromUrl = nonEmptyString(PAGE_SEARCH.get(name));
+                if (fromUrl != null) {
+                    embedRuntime.sources[name] = "url";
+                    return fromUrl;
+                }
+                return null;
+            }
+
+            function parentVerifyEndpoint() {
+                try {
+                    if (
+                        window.parent &&
+                        window.parent !== window &&
+                        window.parent._env_
+                    ) {
+                        return nonEmptyString(
+                            window.parent._env_.SBI_VERIFY_ENDPOINT,
+                        );
+                    }
+                } catch {
+                    // ignore
+                }
+                return null;
+            }
+
+            function parseRequestedScore(raw, fallback) {
+                const n = Number(raw);
+                return Number.isFinite(n) && n > 0 ? n : fallback;
+            }
+
+            function applyEmbedConfig(hostOverride = null) {
+                const runId = pickParam("runId", hostOverride);
+                if (runId) embedRuntime.runId = runId;
+
+                const urlApi = pickParam("api", hostOverride);
+                if (urlApi) {
+                    embedRuntime.api = urlApi;
+                } else if (!hostOverride) {
+                    const parentApi = parentVerifyEndpoint();
+                    if (parentApi) {
+                        embedRuntime.api = parentApi;
+                        embedRuntime.sources.api = "parent._env_";
+                    } else if (!embedRuntime.api) {
+                        embedRuntime.api = DEFAULT_VERIFY_ENDPOINT;
+                        embedRuntime.sources.api = "default";
+                    }
+                } else {
+                    const parentApi = parentVerifyEndpoint();
+                    embedRuntime.api =
+                        parentApi ||
+                        embedRuntime.api ||
+                        DEFAULT_VERIFY_ENDPOINT;
+                    if (!embedRuntime.sources.api) {
+                        embedRuntime.sources.api = parentApi
+                            ? "parent._env_"
+                            : "default";
+                    }
+                }
+
+                const txn = pickParam("transactionId", hostOverride);
+                if (txn) embedRuntime.transactionId = txn;
+
+                const env = pickParam("env", hostOverride);
+                if (env) embedRuntime.env = env;
+
+                const purpose = pickParam("purpose", hostOverride);
+                if (purpose) embedRuntime.purpose = purpose;
+                else if (!embedRuntime.purpose) embedRuntime.purpose = "Auth";
+
+                const domainUri = pickParam("domainUri", hostOverride);
+                if (domainUri) {
+                    embedRuntime.domainUri = normalizeDomainUri(domainUri);
+                } else if (!embedRuntime.domainUri) {
+                    embedRuntime.domainUri = normalizeDomainUri(
+                        window.location.origin,
+                    );
+                    embedRuntime.sources.domainUri = "normalized";
+                }
+
+                const scoreRaw =
+                    pickParam("requestedScore", hostOverride) ??
+                    nonEmptyString(PAGE_SEARCH.get("requestedScore"));
+                if (scoreRaw != null) {
+                    embedRuntime.requestedScore = parseRequestedScore(
+                        scoreRaw,
+                        embedRuntime.requestedScore > 0
+                            ? embedRuntime.requestedScore
+                            : 70,
+                    );
+                    if (!embedRuntime.sources.requestedScore) {
+                        embedRuntime.sources.requestedScore = hostOverride
+                            ? "postMessage"
+                            : "url";
+                    }
+                } else if (embedRuntime.requestedScore <= 0) {
+                    embedRuntime.requestedScore = 70;
+                    embedRuntime.sources.requestedScore = "default";
+                }
+            }
+
+            function logEmbedConfig(phase) {
+                const snapshot = {
+                    phase,
+                    runId: embedRuntime.runId || null,
+                    api: embedRuntime.api || null,
+                    transactionId: embedRuntime.transactionId || null,
+                    env: embedRuntime.env || null,
+                    purpose: embedRuntime.purpose || null,
+                    domainUri: embedRuntime.domainUri || null,
+                    requestedScore: embedRuntime.requestedScore || null,
+                    sources: { ...embedRuntime.sources },
+                    locationSearch: location.search || null,
+                };
+                console.info("[Embedded Face SBI] config", snapshot);
+                if (DEBUG_EMBED && embedDebugEl) {
+                    embedDebugEl.textContent = [
+                        `phase: ${phase}`,
+                        `txn: ${snapshot.transactionId ?? "(missing)"}`,
+                        `env: ${snapshot.env ?? "(missing)"}`,
+                        `purpose: ${snapshot.purpose ?? "(missing)"}`,
+                        `domain: ${snapshot.domainUri ?? "(missing)"}`,
+                        `score: ${snapshot.requestedScore ?? "(missing)"}`,
+                        `api: ${snapshot.api ? snapshot.api.replace(/\/\/[^/]+/, "//…") : "(missing)"}`,
+                        `runId: ${snapshot.runId ?? "(missing)"}`,
+                    ].join(" | ");
+                }
+                return snapshot;
+            }
+
+            function assertVerifyConfigReady(phase) {
+                const missing = [];
+                if (!nonEmptyString(embedRuntime.transactionId))
+                    missing.push("transactionId");
+                if (!nonEmptyString(embedRuntime.env)) missing.push("env");
+                if (!nonEmptyString(embedRuntime.domainUri))
+                    missing.push("domainUri");
+                if (!nonEmptyString(embedRuntime.purpose))
+                    missing.push("purpose");
+                if (
+                    !Number.isFinite(embedRuntime.requestedScore) ||
+                    embedRuntime.requestedScore <= 0
+                ) {
+                    missing.push("requestedScore");
+                }
+                if (!nonEmptyString(embedRuntime.api)) missing.push("api");
+                if (missing.length) {
+                    const snapshot = logEmbedConfig(`${phase}:invalid`);
+                    throw new Error(
+                        `Embedded Face SBI missing required fields: ${missing.join(", ")}. ` +
+                            JSON.stringify(snapshot),
+                    );
+                }
+            }
+
+            applyEmbedConfig();
+            logEmbedConfig("init");
+
+            let embedDebugEl = null;
+            if (EMBED && DEBUG_EMBED) {
+                embedDebugEl = document.createElement("div");
+                embedDebugEl.id = "embedConfigDebug";
+                embedDebugEl.setAttribute("aria-live", "polite");
+                embedDebugEl.style.cssText =
+                    "position:fixed;left:0;right:0;bottom:0;z-index:9999;font:11px/1.3 monospace;" +
+                    "color:#e2e8f0;background:rgba(15,23,42,.92);padding:6px 8px;word-break:break-all;";
+                document.body.appendChild(embedDebugEl);
+            }
+
+            window.addEventListener("message", (event) => {
+                if (event.origin !== window.location.origin) return;
+                if (
+                    !event.data ||
+                    event.data.type !== "INTERNAL_SBI_EMBED_CONFIG"
+                )
+                    return;
+                if (
+                    embedRuntime.runId &&
+                    event.data.runId &&
+                    event.data.runId !== embedRuntime.runId
+                ) {
+                    return;
+                }
+                applyEmbedConfig(event.data);
+                logEmbedConfig("postMessage");
+            });
+
+            const RUN_ID = () => embedRuntime.runId;
+            function initEmbedShell() {
+                document.documentElement.classList.add("embed-mode");
+                document.body.classList.add("embed-mode");
+                document.body.style.padding = "0";
+                document.body.style.background = "#111827";
+                document
+                    .querySelector("h1")
+                    ?.style.setProperty("display", "none");
+                document
+                    .querySelector("body > p")
+                    ?.style.setProperty("display", "none");
+                document
+                    .querySelector(".landing")
+                    ?.style.setProperty("display", "none");
+                if (startVerificationBtn)
+                    startVerificationBtn.style.display = "none";
+                if (restartBtn) restartBtn.style.display = "none";
+                document
+                    .querySelector(".landing-actions")
+                    ?.style.setProperty("display", "none");
+                document
+                    .querySelector(".tips-card")
+                    ?.style.setProperty("display", "none");
+                if (statusBox) statusBox.style.display = "none";
+                if (metricsEl) metricsEl.style.display = "none";
+            }
+
+            if (EMBED) {
+                initEmbedShell();
+            }
+
+            let stepStartedAt = 0;
+            let submitting = false;
+            let rafId = null;
+            let faceSnapshots = [];
+            let lastSnapshotAt = 0;
+            let pendingSnapshot = false;
+            let autoSubmitTriggered = false;
+            let maskHidden = false;
+            let wrongActionStreak = 0;
+            let stepCompleting = false;
+            let modelReady = false;
+            let sessionActive = false;
+            let verificationEnded = false;
+            let livenessAttemptCount = 0;
+            let noFaceFrames = 0;
+            /** True while camera tracks are torn down to prevent iOS PiP on background. */
+            let cameraSuspended = false;
+            const NO_FACE_HINT_FRAMES = 18;
+
+            const LEFT_EYE = [33, 160, 158, 133, 153, 144];
+            const RIGHT_EYE = [362, 385, 387, 263, 373, 380];
+            const NOSE_TIP = 1;
+            const LEFT_CHEEK = 234;
+            const RIGHT_CHEEK = 454;
+            const FOREHEAD = 10;
+            const CHIN = 152;
+            const MOUTH_LEFT = 61;
+            const MOUTH_RIGHT = 291;
+            const MOUTH_TOP = 13;
+            const MOUTH_BOTTOM = 14;
+
+            function livenessRetriesRemaining() {
+                return Math.max(
+                    0,
+                    MAX_LIVENESS_ATTEMPTS - livenessAttemptCount,
+                );
+            }
+
+            function canRetryLiveness() {
+                return livenessRetriesRemaining() > 0;
+            }
+
+            function shuffle(arr) {
+                const a = [...arr];
+                for (let i = a.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [a[i], a[j]] = [a[j], a[i]];
+                }
+                return a;
+            }
+
+            function buildChallengeSequence() {
+                return [FACE_PRIMER, ...shuffle(CHALLENGE_POOL)];
+            }
+
+            function currentChallenge() {
+                return activeSteps[currentStep];
+            }
+
+            function updateSubmitButton() {
+                submitBtn.disabled =
+                    submitting ||
+                    !passed ||
+                    faceSnapshots.length < SNAPSHOT_MIN;
+            }
+
+            function cameraIsActive() {
+                const streamLive = Boolean(
+                    cameraStream?.getVideoTracks().some(
+                        (t) => t.readyState === "live",
+                    ),
+                );
+                if (CAMERA_MODE === "image-capture") {
+                    return Boolean(imageCapture && streamLive);
+                }
+                if (CAMERA_MODE === "track-processor") {
+                    return Boolean(trackReader && streamLive);
+                }
+                return Boolean(
+                    video.srcObject && video.readyState >= 2 && streamLive,
+                );
+            }
+
+            function getFrameDimensions() {
+                if (USE_IOS_CANVAS_CAPTURE && frameWidth && frameHeight) {
+                    return { width: frameWidth, height: frameHeight };
+                }
+                return { width: video.videoWidth, height: video.videoHeight };
+            }
+
+            function usesImageDetection() {
+                return USE_IOS_CANVAS_CAPTURE;
+            }
+
+            function detectFaces() {
+                if (usesImageDetection()) {
+                    return faceLandmarker.detect(canvas);
+                }
+                return faceLandmarker.detectForVideo(video, performance.now());
+            }
+
+            async function paintCameraFrameFromCapture() {
+                if (!imageCapture) return false;
+                try {
+                    const bitmap = await imageCapture.grabFrame();
+                    if (
+                        canvas.width !== bitmap.width ||
+                        canvas.height !== bitmap.height
+                    ) {
+                        canvas.width = bitmap.width;
+                        canvas.height = bitmap.height;
+                        frameWidth = bitmap.width;
+                        frameHeight = bitmap.height;
+                    }
+                    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                    bitmap.close();
+                    return true;
+                } catch (err) {
+                    console.warn("ImageCapture.grabFrame failed:", err);
+                    return false;
+                }
+            }
+
+            async function paintCameraFrameFromProcessor() {
+                if (!trackReader) return false;
+                try {
+                    const { value: frame, done } = await trackReader.read();
+                    if (done || !frame) return false;
+                    try {
+                        const w = frame.displayWidth || frame.codedWidth;
+                        const h = frame.displayHeight || frame.codedHeight;
+                        if (canvas.width !== w || canvas.height !== h) {
+                            canvas.width = w;
+                            canvas.height = h;
+                            frameWidth = w;
+                            frameHeight = h;
+                        }
+                        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+                        return true;
+                    } finally {
+                        frame.close();
+                    }
+                } catch (err) {
+                    console.warn("MediaStreamTrackProcessor read failed:", err);
+                    return false;
+                }
+            }
+
+            async function paintCameraFrame() {
+                if (CAMERA_MODE === "image-capture") {
+                    return paintCameraFrameFromCapture();
+                }
+                if (CAMERA_MODE === "track-processor") {
+                    return paintCameraFrameFromProcessor();
+                }
+                if (!video.srcObject || video.readyState < 2) return false;
+                if (USE_CANVAS_PREVIEW) {
+                    paintCameraToCanvas();
+                    return true;
+                }
+                clearCanvasOverlay();
+                return true;
+            }
+
+            function paintCameraToCanvas() {
+                if (!USE_CANVAS_PREVIEW || USE_IOS_CANVAS_CAPTURE) return;
+                if (!video.srcObject || video.readyState < 2) return;
+                if (!canvas.width || !canvas.height) return;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            }
+
+            function clearCanvasOverlay() {
+                if (canvas.width && canvas.height) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            function clearFaceMask() {
+                maskHidden = true;
+                canvas.classList.add("mask-hidden");
+                if (USE_IOS_CANVAS_CAPTURE) {
+                    /* keep last canvas frame visible */
+                } else if (USE_CANVAS_PREVIEW) {
+                    paintCameraToCanvas();
+                } else {
+                    clearCanvasOverlay();
+                }
+                hideActionIndicator();
+                hideGuideUI();
+            }
+
+            function showStageProcessing(show) {
+                stageProcessing.classList.toggle("hidden", !show);
+                if (show) stageResult.classList.add("hidden");
+            }
+
+            function showStageResult(
+                ok,
+                title,
+                detail,
+                { allowRetry = false } = {},
+            ) {
+                stageProcessing.classList.add("hidden");
+                stageResult.classList.remove("hidden");
+                stageResult.classList.toggle("pass", ok);
+                stageResult.classList.toggle("fail", !ok);
+                resultIcon.textContent = ok ? "✓" : "✕";
+                resultTitle.textContent = title;
+                resultDetail.textContent = detail || "";
+                resultRetryBtn.classList.toggle("hidden", ok || !allowRetry);
+                resultRetryBtn.disabled = !allowRetry;
+            }
+
+            function hideStageOverlays() {
+                stageProcessing.classList.add("hidden");
+                stageResult.classList.add("hidden");
+                stageResult.classList.remove("pass", "fail");
+                resultRetryBtn.classList.add("hidden");
+                resultRetryBtn.disabled = true;
+            }
+
+            function openVerifyDialog() {
+                verifyDialog.classList.remove("hidden");
+                verifyDialog.setAttribute("aria-hidden", "false");
+                document.body.classList.add("modal-open");
+            }
+
+            function closeVerifyDialog() {
+                verifyDialog.classList.add("hidden");
+                verifyDialog.setAttribute("aria-hidden", "true");
+                document.body.classList.remove("modal-open");
+                hideStageOverlays();
+            }
+
+            function stopCamera({ clearCanvas = true } = {}) {
+                running = false;
+                cameraSuspended = false;
+                frameBusy = false;
+                if (rafId) {
+                    cancelAnimationFrame(rafId);
+                    rafId = null;
+                }
+                imageCapture = null;
+                if (trackReader) {
+                    trackReader.cancel().catch(() => {});
+                    trackReader = null;
+                }
+                trackProcessor = null;
+                if (cameraStream) {
+                    cameraStream.getTracks().forEach((track) => track.stop());
+                    cameraStream = null;
+                }
+                frameWidth = 0;
+                frameHeight = 0;
+                const stream = video.srcObject;
+                if (stream) {
+                    stream.getTracks().forEach((track) => track.stop());
+                }
+                try {
+                    video.pause();
+                } catch {
+                    /* ignore */
+                }
+                video.removeAttribute("src");
+                video.srcObject = null;
+                try {
+                    video.load();
+                } catch {
+                    /* ignore */
+                }
+                if (clearCanvas && canvas.width && canvas.height) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            /** Tear down MediaStream so iOS cannot keep a floating LIVE / PiP window. */
+            function releaseCameraStream() {
+                imageCapture = null;
+                if (trackReader) {
+                    trackReader.cancel().catch(() => {});
+                    trackReader = null;
+                }
+                trackProcessor = null;
+                if (cameraStream) {
+                    cameraStream.getTracks().forEach((track) => track.stop());
+                    cameraStream = null;
+                }
+                frameWidth = 0;
+                frameHeight = 0;
+                const stream = video.srcObject;
+                try {
+                    video.pause();
+                } catch {
+                    /* ignore */
+                }
+                video.removeAttribute("src");
+                video.srcObject = null;
+                try {
+                    video.load();
+                } catch {
+                    /* ignore */
+                }
+                if (stream) {
+                    stream.getTracks().forEach((track) => track.stop());
+                }
+            }
+
+            function updateLandingButtons({ starting = false } = {}) {
+                const inProgress = sessionActive && !verificationEnded;
+                const attemptsExhausted =
+                    livenessAttemptCount >= MAX_LIVENESS_ATTEMPTS;
+                startVerificationBtn.disabled =
+                    starting || inProgress || attemptsExhausted;
+                restartBtn.disabled =
+                    starting ||
+                    inProgress ||
+                    attemptsExhausted ||
+                    !verificationEnded;
+                closeDialogBtn.disabled =
+                    starting || (inProgress && !verificationEnded);
+            }
+
+            function setSessionActive(active) {
+                sessionActive = active;
+                updateLandingButtons();
+            }
+
+            function endVerificationSession({
+                ok,
+                title,
+                detail,
+                statusText,
+                statusType,
+                closeDialog = false,
+                allowLivenessRetry = false,
+            }) {
+                stopCamera();
+                verificationEnded = true;
+                setSessionActive(false);
+                if (title)
+                    showStageResult(ok, title, detail, {
+                        allowRetry: allowLivenessRetry,
+                    });
+                if (statusText) setStatus(statusText, statusType);
+                closeDialogBtn.disabled = false;
+                updateLandingButtons();
+                if (closeDialog) closeVerifyDialog();
+            }
+
+            function getBiometricErrorFields(entry) {
+                if (!entry || typeof entry !== "object") return null;
+                if (entry.error && typeof entry.error === "object") {
+                    return {
+                        code: String(entry.error.errorCode ?? "").trim(),
+                        info: String(entry.error.errorInfo ?? "").trim(),
+                    };
+                }
+                if (entry.errorCode != null || entry.errorInfo != null) {
+                    return {
+                        code: String(entry.errorCode ?? "").trim(),
+                        info: String(entry.errorInfo ?? "").trim(),
+                    };
+                }
+                return null;
+            }
+
+            function parseVerifyResponse(payload) {
+                const biometrics = payload?.biometrics;
+                if (!Array.isArray(biometrics) || biometrics.length === 0) {
+                    return {
+                        ok: false,
+                        message: "Invalid response: no biometrics data",
+                    };
+                }
+                const fields = getBiometricErrorFields(biometrics[0]);
+                if (!fields) {
+                    return {
+                        ok: false,
+                        message: "Invalid response: missing error fields",
+                    };
+                }
+                const { code, info } = fields;
+                if (code === "0") {
+                    return {
+                        ok: true,
+                        message: info || "Verification successful",
+                    };
+                }
+                if (info) {
+                    return { ok: false, message: info };
+                }
+                return {
+                    ok: false,
+                    message: code
+                        ? `Verification failed (code ${code})`
+                        : "Verification failed",
+                };
+            }
+
+            function tryAutoSubmit() {
+                if (autoSubmitTriggered || submitting || failed || !passed)
+                    return;
+                if (
+                    faceSnapshots.length < getRequiredSnapshotMin() ||
+                    faceSnapshots.length > SNAPSHOT_MAX
+                )
+                    return;
+                autoSubmitTriggered = true;
+                clearFaceMask();
+                challengeCaption.textContent = "Submitting…";
+                challengeCaption.classList.remove("empty");
+                challengeCaption.classList.remove("fail");
+                challengeCaption.classList.add("pass");
+                submitSnapshots();
+            }
+
+            function dataUrlToBase64(dataUrl) {
+                const comma = dataUrl.indexOf(",");
+                return comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+            }
+
+            function getSnapshotBase64List() {
+                return faceSnapshots
+                    .slice(0, SNAPSHOT_MAX)
+                    .map(dataUrlToBase64);
+            }
+
+            function getRequiredSnapshotMin() {
+                return EMBED ? 1 : SNAPSHOT_MIN;
+            }
+
+            async function submitSnapshots() {
+                if (
+                    submitting ||
+                    !passed ||
+                    faceSnapshots.length < getRequiredSnapshotMin()
+                )
+                    return;
+
+                const images = getSnapshotBase64List();
+                submitting = true;
+                clearFaceMask();
+                hideStageOverlays();
+                showStageProcessing(true);
+                restartBtn.disabled = true;
+                setStatus(`Sending ${images.length} image(s) to server…`);
+
+                let notifiedHost = false;
+                try {
+                    applyEmbedConfig();
+                    assertVerifyConfigReady("submit");
+                    const verifyBody = {
+                        images,
+                        transactionId: embedRuntime.transactionId,
+                        requestedScore: embedRuntime.requestedScore,
+                        purpose: embedRuntime.purpose,
+                        env: embedRuntime.env,
+                        domainUri: embedRuntime.domainUri,
+                    };
+                    logEmbedConfig("submit");
+                    console.info(
+                        "[Embedded Face SBI] verify POST body",
+                        verifyBody,
+                    );
+
+                    const response = await fetch(embedRuntime.api, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(verifyBody),
+                    });
+
+                    const text = await response.text();
+                    let payload = null;
+                    try {
+                        payload = JSON.parse(text);
+                    } catch {
+                        if (!response.ok) {
+                            throw new Error(
+                                text || `Server returned ${response.status}`,
+                            );
+                        }
+                        throw new Error("Invalid JSON response from server");
+                    }
+
+                    const parsed = parseVerifyResponse(payload);
+                    const verifyOk = response.ok && parsed.ok;
+                    const verifyError = verifyOk
+                        ? null
+                        : parsed.message ||
+                          payload?.message ||
+                          `Server returned ${response.status}`;
+
+                    notifyHostVerifyResult({
+                        ok: verifyOk,
+                        payload,
+                        error: verifyError,
+                    });
+                    notifiedHost = true;
+
+                    if (!verifyOk) {
+                        throw new Error(verifyError);
+                    }
+
+                    challengeCaption.textContent = "Verified";
+                    challengeCaption.classList.add("pass");
+                    endVerificationSession({
+                        ok: true,
+                        title: "Verification successful",
+                        detail: parsed.message,
+                        statusText: parsed.message,
+                        statusType: "pass",
+                    });
+                } catch (err) {
+                    console.error(err);
+                    if (!notifiedHost) {
+                        notifyHostVerifyResult({
+                            ok: false,
+                            error: String(err?.message || err),
+                        });
+                    }
+                    challengeCaption.textContent = "Failed";
+                    challengeCaption.classList.remove("pass");
+                    challengeCaption.classList.add("fail");
+                    failed = true;
+                    endVerificationSession({
+                        ok: false,
+                        title: "Verification failed",
+                        detail: err.message,
+                        statusText: err.message,
+                        statusType: "fail",
+                        allowLivenessRetry: canRetryLiveness(),
+                    });
+                } finally {
+                    submitting = false;
+                    showStageProcessing(false);
+                    updateSubmitButton();
+                }
+            }
+
+            function renderSnapshotGallery() {
+                snapshotGallery.innerHTML = "";
+                if (!faceSnapshots.length) {
+                    snapshotGallery.classList.add("hidden");
+                    updateSubmitButton();
+                    return;
+                }
+                faceSnapshots.forEach((src, i) => {
+                    const img = document.createElement("img");
+                    img.src = src;
+                    img.alt = `Verification snapshot ${i + 1}`;
+                    snapshotGallery.appendChild(img);
+                });
+                snapshotGallery.classList.remove("hidden");
+                updateSubmitButton();
+            }
+
+            function clearSnapshotGallery() {
+                faceSnapshots = [];
+                lastSnapshotAt = 0;
+                pendingSnapshot = false;
+                autoSubmitTriggered = false;
+                maskHidden = false;
+                wrongActionStreak = 0;
+                canvas.classList.remove("mask-hidden");
+                hideStageOverlays();
+                snapshotGallery.innerHTML = "";
+                snapshotGallery.classList.add("hidden");
+                updateSubmitButton();
+            }
+
+            function isFrontFacing(
+                smoothYaw,
+                smoothPitch,
+                ear,
+                blinkBs,
+                relaxed = false,
+            ) {
+                const yawMax = relaxed ? 0.16 : FRONT_YAW_MAX;
+                const pitchMax = relaxed ? 0.16 : FRONT_PITCH_MAX;
+                const yaw = poseYaw(smoothYaw);
+                if (Math.abs(yaw) > yawMax) return false;
+                if (Math.abs(smoothPitch) > pitchMax) return false;
+                if (blinkBs !== null && blinkBs > (relaxed ? 0.38 : 0.32))
+                    return false;
+                if (ear < (relaxed ? 0.17 : 0.19)) return false;
+                return true;
+            }
+
+            function getFaceCropRect(landmarks, vw, vh) {
+                const left = landmarks[LEFT_CHEEK];
+                const right = landmarks[RIGHT_CHEEK];
+                const forehead = landmarks[FOREHEAD];
+                const chin = landmarks[CHIN];
+
+                let minX = Math.min(left.x, right.x) * vw;
+                let maxX = Math.max(left.x, right.x) * vw;
+                let minY = forehead.y * vh;
+                let maxY = chin.y * vh;
+
+                const cheekW = maxX - minX;
+                const cheekH = maxY - minY;
+                const padX = cheekW * 0.38;
+                const padY = cheekH * 0.32;
+
+                minX = Math.max(0, minX - padX);
+                maxX = Math.min(vw, maxX + padX);
+                minY = Math.max(0, minY - padY);
+                maxY = Math.min(vh, maxY + padY);
+
+                const w = Math.max(1, maxX - minX);
+                const h = Math.max(1, maxY - minY);
+                const size = Math.max(w, h);
+
+                const cx = (minX + maxX) / 2;
+                const cy = (minY + maxY) / 2;
+                let x = cx - size / 2;
+                let y = cy - size / 2;
+
+                if (x < 0) x = 0;
+                if (y < 0) y = 0;
+                if (x + size > vw) x = vw - size;
+                if (y + size > vh) y = vh - size;
+
+                return { x, y, w: size, h: size };
+            }
+
+            function captureFaceSnapshot(landmarks) {
+                const { width: vw, height: vh } = getFrameDimensions();
+                if (!vw || !vh) return null;
+                if (!USE_IOS_CANVAS_CAPTURE && video.readyState < 2) return null;
+
+                const rect = getFaceCropRect(landmarks, vw, vh);
+                if (rect.w < 8 || rect.h < 8) return null;
+                const cropSize = Math.max(rect.w, rect.h);
+                const out = Math.min(
+                    SNAPSHOT_OUTPUT_MAX,
+                    Math.max(SNAPSHOT_OUTPUT_MIN, Math.round(cropSize)),
+                );
+                snapCanvas.width = out;
+                snapCanvas.height = out;
+
+                const snapshotSource = USE_IOS_CANVAS_CAPTURE ? canvas : video;
+
+                snapCtx.save();
+                snapCtx.imageSmoothingEnabled = true;
+                snapCtx.imageSmoothingQuality = "high";
+                if (usesMirroredPreview()) {
+                    snapCtx.translate(out, 0);
+                    snapCtx.scale(-1, 1);
+                }
+                snapCtx.drawImage(
+                    snapshotSource,
+                    rect.x,
+                    rect.y,
+                    rect.w,
+                    rect.h,
+                    0,
+                    0,
+                    out,
+                    out,
+                );
+                snapCtx.restore();
+
+                return snapCanvas.toDataURL(
+                    "image/jpeg",
+                    SNAPSHOT_JPEG_QUALITY,
+                );
+            }
+
+            function tryCaptureSnapshot(
+                landmarks,
+                smoothYaw,
+                smoothPitch,
+                ear,
+                blinkBs,
+                width,
+            ) {
+                if (failed || passed) return;
+                if (faceSnapshots.length >= SNAPSHOT_MAX) return;
+                if (width < FACE_SIZE_MIN) return;
+
+                const relaxed = pendingSnapshot;
+                if (
+                    !isFrontFacing(
+                        smoothYaw,
+                        smoothPitch,
+                        ear,
+                        blinkBs,
+                        relaxed,
+                    )
+                )
+                    return;
+
+                const now = performance.now();
+                if (now - lastSnapshotAt < SNAPSHOT_MIN_INTERVAL_MS) return;
+
+                const dataUrl = captureFaceSnapshot(landmarks);
+                if (!dataUrl || dataUrl.length < 100) return;
+
+                faceSnapshots.push(dataUrl);
+                lastSnapshotAt = now;
+                pendingSnapshot = false;
+            }
+
+            function getChallengeSecondsLeft() {
+                const left =
+                    CHALLENGE_DURATION_MS - (performance.now() - stepStartedAt);
+                return Math.max(0, Math.ceil(left / 1000));
+            }
+
+            function hideGuideUI() {
+                guideCard.classList.add("hidden");
+                nowBanner.classList.add("hidden");
+                coachAvatar.classList.add("hidden");
+                coachAvatar.setAttribute("aria-hidden", "true");
+                faceMaskLayer.classList.add("hidden");
+                faceMaskLayer.setAttribute("aria-hidden", "true");
+                faceOvalFrame.classList.add("hidden");
+                faceOvalFrame.classList.remove("step-face");
+                faceOvalFrame.setAttribute("aria-hidden", "true");
+                directionArcs.forEach((el) => el.classList.remove("active"));
+                edgeGuide.classList.add("hidden");
+                edgeGuide.setAttribute("aria-hidden", "true");
+                edgeArrows.forEach((el) => el.classList.remove("active"));
+                noFaceHint.classList.add("hidden");
+                faceFitHint.classList.add("hidden");
+                noFaceFrames = 0;
+            }
+
+            function updateDialogStepLabel() {
+                const total = activeSteps.length;
+                if (!total || passed || failed) {
+                    verifyDialogTitle.textContent = "Active face verification";
+                    return;
+                }
+                const stepNum = Math.min(currentStep + 1, total);
+                verifyDialogTitle.textContent = `Verification — step ${stepNum} of ${total}`;
+            }
+
+            /** Shared with outer SVG ring — arcs must use identical ellipse so L/R match T/B on outer circle. */
+            const OUTER_OVAL = { cx: 50, cy: 65, rx: 50, ry: 65, sweep: 52 };
+            const DIRECTION_DEG = { left: 180, right: 0, top: -90, bottom: 90 };
+
+            function buildEllipseArcPath(cx, cy, rx, ry, centerDeg, sweepDeg) {
+                const rad = (deg) => (deg * Math.PI) / 180;
+                const start = centerDeg - sweepDeg / 2;
+                const end = centerDeg + sweepDeg / 2;
+                const x1 = cx + rx * Math.cos(rad(start));
+                const y1 = cy + ry * Math.sin(rad(start));
+                const x2 = cx + rx * Math.cos(rad(end));
+                const y2 = cy + ry * Math.sin(rad(end));
+                const largeArc = sweepDeg > 180 ? 1 : 0;
+                return `M ${x1.toFixed(3)} ${y1.toFixed(3)} A ${rx} ${ry} 0 ${largeArc} 1 ${x2.toFixed(3)} ${y2.toFixed(3)}`;
+            }
+
+            function initDirectionArcs() {
+                const { cx, cy, rx, ry, sweep } = OUTER_OVAL;
+                const ring = document.getElementById("outerOvalRing");
+                if (ring) {
+                    ring.setAttribute("cx", String(cx));
+                    ring.setAttribute("cy", String(cy));
+                    ring.setAttribute("rx", String(rx));
+                    ring.setAttribute("ry", String(ry));
+                }
+                Object.entries(DIRECTION_DEG).forEach(([edge, center]) => {
+                    const el = faceOvalOuter.querySelector(`.dir-arc-${edge}`);
+                    if (el)
+                        el.setAttribute(
+                            "d",
+                            buildEllipseArcPath(cx, cy, rx, ry, center, sweep),
+                        );
+                });
+            }
+
+            function setDirectionCue(edge) {
+                directionArcs.forEach((el) => el.classList.remove("active"));
+                edgeArrows.forEach((el) => el.classList.remove("active"));
+                if (!edge) return;
+                faceOvalOuter
+                    .querySelector(`.dir-arc-${edge}`)
+                    ?.classList.add("active");
+                edgeGuide
+                    .querySelector(`[data-edge="${edge}"]`)
+                    ?.classList.add("active");
+            }
+
+            function setNoFaceHintVisible(show) {
+                noFaceHint.classList.toggle("hidden", !show);
+            }
+
+            function updateFaceFitHint(landmarks) {
+                const stepId = currentChallenge()?.id;
+                if (
+                    !stepId ||
+                    stepId !== "face" ||
+                    !landmarks ||
+                    passed ||
+                    failed
+                ) {
+                    faceFitHint.classList.add("hidden");
+                    return;
+                }
+                const width = faceWidthNorm(landmarks);
+                if (width < FACE_SIZE_MIN * 0.85) {
+                    faceFitHint.textContent = "Move closer — face is too small";
+                    faceFitHint.classList.remove("hidden");
+                } else if (width > 0.28) {
+                    faceFitHint.textContent = "Move back — face is too large";
+                    faceFitHint.classList.remove("hidden");
+                } else {
+                    const center = getFaceCenter(landmarks);
+                    const dx = Math.abs(center.x - 0.5);
+                    const dy = Math.abs(center.y - 0.44);
+                    if (dx > 0.12 || dy > 0.14) {
+                        faceFitHint.textContent =
+                            "Center your face in the green oval";
+                        faceFitHint.classList.remove("hidden");
+                    } else {
+                        faceFitHint.classList.add("hidden");
+                    }
+                }
+            }
+
+            function formatCameraError(err) {
+                const name = err?.name || "";
+                if (
+                    name === "NotAllowedError" ||
+                    name === "PermissionDeniedError"
+                ) {
+                    return "Camera permission denied. Allow camera access in your browser settings, then try again.";
+                }
+                if (
+                    name === "NotFoundError" ||
+                    name === "DevicesNotFoundError"
+                ) {
+                    return "No camera found. Connect a webcam or use a device with a front camera.";
+                }
+                if (name === "NotReadableError" || name === "TrackStartError") {
+                    return "Camera is in use by another app. Close other apps using the camera and try again.";
+                }
+                if (
+                    location.protocol !== "https:" &&
+                    location.hostname !== "localhost" &&
+                    location.hostname !== "127.0.0.1"
+                ) {
+                    return (
+                        (err?.message || "Camera error") +
+                        " — use HTTPS or localhost for camera access."
+                    );
+                }
+                return err?.message || "Could not access the camera.";
+            }
+
+            function updateCoachAvatar(stepId, secondsLeft, stepOk = false) {
+                coachAvatar.className = "coach-avatar";
+                if (stepOk) {
+                    coachAvatar.classList.add("step-ok");
+                    coachTimer.textContent = "✓";
+                    coachTimer.classList.remove("urgent");
+                } else {
+                    if (stepId) coachAvatar.classList.add(`pose-${stepId}`);
+                    coachTimer.textContent = `${secondsLeft}s`;
+                    coachTimer.classList.toggle("urgent", secondsLeft <= 4);
+                }
+                coachAvatar.classList.remove("hidden");
+                coachAvatar.setAttribute("aria-hidden", "false");
+            }
+
+            function renderStepProgress() {
+                stepProgress.innerHTML = activeSteps
+                    .map((_, i) => {
+                        let cls = "progress-dot";
+                        if (i < currentStep) cls += " done";
+                        else if (i === currentStep) cls += " active";
+                        return `<span class="${cls}" title="Step ${i + 1}"></span>`;
+                    })
+                    .join("");
+            }
+
+            function updateNowBanner(ui, secondsLeft) {
+                nowAction.textContent = ui.now;
+                nowTimer.textContent = `${secondsLeft}s`;
+                nowTimer.classList.toggle("urgent", secondsLeft <= 4);
+                nowBanner.classList.remove("hidden");
+                renderStepProgress();
+            }
+
+            function updateGuideUI() {
+                if (maskHidden || submitting || passed || failed) {
+                    hideGuideUI();
+                    return;
+                }
+
+                const stepId = currentChallenge()?.id;
+                const ui = stepId ? CHALLENGE_UI[stepId] : null;
+                if (!ui) {
+                    hideGuideUI();
+                    return;
+                }
+
+                const secondsLeft = getChallengeSecondsLeft();
+
+                updateCoachAvatar(stepId, secondsLeft);
+                updateNowBanner(ui, secondsLeft);
+
+                faceMaskLayer.classList.remove("hidden");
+                faceMaskLayer.setAttribute("aria-hidden", "false");
+                faceOvalFrame.classList.remove("hidden");
+                faceOvalFrame.classList.toggle("step-face", stepId === "face");
+                faceOvalFrame.setAttribute("aria-hidden", "false");
+
+                if (ui.edge) {
+                    edgeGuide.classList.remove("hidden");
+                    edgeGuide.setAttribute("aria-hidden", "false");
+                    setDirectionCue(getScreenEdge(ui.edge));
+                } else {
+                    edgeGuide.classList.add("hidden");
+                    edgeGuide.setAttribute("aria-hidden", "true");
+                    setDirectionCue(null);
+                }
+
+                updateDialogStepLabel();
+            }
+
+            function flashStepSuccess() {
+                updateCoachAvatar(null, 0, true);
+                nowAction.textContent = "✓";
+                nowTimer.textContent = "";
+            }
+
+            function refreshTimedChallengeCaption() {
+                challengeCaption.classList.remove("pass", "fail", "empty");
+                if (passed || failed) return;
+
+                const stepId = currentChallenge()?.id;
+                const ui = stepId ? CHALLENGE_UI[stepId] : null;
+                if (!ui) {
+                    challengeCaption.textContent = "";
+                    challengeCaption.classList.add("empty");
+                    return;
+                }
+
+                const secondsLeft = getChallengeSecondsLeft();
+                challengeCaption.textContent = "";
+                challengeCaption.classList.add("empty");
+                updateGuideUI();
+            }
+
+            function updateChallengeCaption() {
+                challengeCaption.classList.remove("pass", "fail", "empty");
+                if (passed) {
+                    hideGuideUI();
+                    challengeCaption.textContent = "Verified";
+                    challengeCaption.classList.add("pass");
+                    renderSnapshotGallery();
+                    return;
+                }
+                if (failed) {
+                    hideGuideUI();
+                    challengeCaption.textContent = "Failed";
+                    challengeCaption.classList.add("fail");
+                    snapshotGallery.classList.add("hidden");
+                    return;
+                }
+                refreshTimedChallengeCaption();
+            }
+
+            function isMovingTowardCorrectPose(stepId, smoothYaw, smoothPitch) {
+                const yaw = poseYaw(smoothYaw);
+                const progressSlack = 0.05;
+                if (stepId === "left") return yaw > progressSlack;
+                if (stepId === "right") return yaw < -progressSlack;
+                if (stepId === "up") return smoothPitch < -progressSlack;
+                if (stepId === "down") return smoothPitch > progressSlack;
+                return false;
+            }
+
+            function getStrongWrongAction(stepId, smoothYaw, smoothPitch) {
+                if (stepId === "face") return null;
+
+                const yaw = poseYaw(smoothYaw);
+                const opposite = OPPOSITE_POSE_ACTION[stepId];
+                if (opposite === "right" && yaw <= -WRONG_YAW_THRESHOLD)
+                    return "right";
+                if (opposite === "left" && yaw >= WRONG_YAW_THRESHOLD)
+                    return "left";
+                if (opposite === "down" && smoothPitch >= WRONG_PITCH_THRESHOLD)
+                    return "down";
+                if (opposite === "up" && smoothPitch <= -WRONG_PITCH_THRESHOLD)
+                    return "up";
+
+                if (stepId === "smile") {
+                    if (yaw >= WRONG_YAW_THRESHOLD) return "left";
+                    if (yaw <= -WRONG_YAW_THRESHOLD) return "right";
+                    if (smoothPitch >= WRONG_PITCH_THRESHOLD) return "down";
+                    if (smoothPitch <= -WRONG_PITCH_THRESHOLD) return "up";
+                }
+                return null;
+            }
+
+            function getFaceCenter(landmarks) {
+                const xs = landmarks.map((l) => l.x);
+                const ys = landmarks.map((l) => l.y);
+                return {
+                    x: xs.reduce((a, b) => a + b, 0) / xs.length,
+                    y: ys.reduce((a, b) => a + b, 0) / ys.length,
+                };
+            }
+
+            function getGuideAnchor(landmarks, guide) {
+                const center = getFaceCenter(landmarks);
+                return {
+                    x: center.x + (guide.offsetX || 0),
+                    y: center.y + (guide.offsetY || 0),
+                };
+            }
+
+            function hideActionIndicator() {
+                actionIndicator.classList.add("hidden");
+                actionIndicator.setAttribute("aria-hidden", "true");
+            }
+
+            function updateActionIndicator(landmarks) {
+                const stepId = currentChallenge()?.id;
+                if (passed || failed || !landmarks || !stepId) {
+                    hideActionIndicator();
+                    return;
+                }
+
+                const guide = getActionGuide(stepId);
+                if (!guide) {
+                    hideActionIndicator();
+                    return;
+                }
+
+                const anchor = getGuideAnchor(landmarks, guide);
+                actionIndicator.style.left = `${mapScreenX(anchor.x) * 100}%`;
+                actionIndicator.style.top = `${anchor.y * 100}%`;
+                actionIndicator.style.color = guide.color;
+                actionLabel.textContent = guide.label;
+                actionIndicator.className = `action-indicator dir-${guide.dir}`;
+                actionIndicator.classList.remove("hidden");
+                actionIndicator.setAttribute("aria-hidden", "false");
+            }
+
+            function pulseAmount(now = performance.now()) {
+                const cycle = 1200;
+                return (
+                    (Math.sin(((now % cycle) / cycle) * Math.PI * 2) + 1) / 2
+                );
+            }
+
+            function drawChallengeMaskHighlight(
+                landmarks,
+                connections,
+                rgb,
+                lineWidthBase = 2.5,
+            ) {
+                const pulse = pulseAmount();
+                const alpha = 0.45 + pulse * 0.45;
+                const lineWidth = lineWidthBase + pulse;
+                const [r, g, b] = rgb;
+
+                drawingUtils.drawConnectors(landmarks, connections, {
+                    color: `rgba(${r}, ${g}, ${b}, ${alpha})`,
+                    lineWidth,
+                });
+            }
+
+            const FEATURE_HIGHLIGHT_RED = [248, 113, 113];
+
+            function drawSmileGuide(landmarks) {
+                drawChallengeMaskHighlight(
+                    landmarks,
+                    FaceLandmarker.FACE_LANDMARKS_LIPS,
+                    FEATURE_HIGHLIGHT_RED,
+                    3,
+                );
+            }
+
+            function drawCanvasStepHint(
+                text,
+                w,
+                h,
+                color = "rgba(251, 191, 36, 1)",
+                yFactor = 0.68,
+            ) {
+                const pulse = pulseAmount();
+                const cx = w / 2;
+                const cy = h * yFactor;
+                ctx.save();
+                ctx.translate(cx, cy);
+                if (usesMirroredPreview()) {
+                    ctx.scale(-1, 1);
+                }
+                ctx.font = `600 ${Math.max(14, Math.round(w * 0.045))}px system-ui, sans-serif`;
+                ctx.globalAlpha = 0.55 + pulse * 0.45;
+                ctx.fillStyle = color;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.shadowColor = "rgba(0,0,0,0.5)";
+                ctx.shadowBlur = 6;
+                ctx.fillText(text, 0, 0);
+                ctx.restore();
+            }
+
+            function drawFaceOvalMesh(landmarks, alpha = 0.9, lineWidth = 2.5) {
+                drawingUtils.drawConnectors(
+                    landmarks,
+                    FaceLandmarker.FACE_LANDMARKS_FACE_OVAL,
+                    { color: `rgba(52, 211, 153, ${alpha})`, lineWidth },
+                );
+            }
+
+            function blinkBlendScore(blendshapes) {
+                if (!blendshapes) return null;
+                const left = blendshapes.eyeBlinkLeft ?? 0;
+                const right = blendshapes.eyeBlinkRight ?? 0;
+                return (left + right) / 2;
+            }
+
+            function parseBlendshapes(result) {
+                const cats = result.faceBlendshapes?.[0]?.categories;
+                if (!cats) return null;
+                return cats.reduce((acc, c) => {
+                    acc[c.categoryName] = c.score;
+                    return acc;
+                }, {});
+            }
+
+            function smileScore(blendshapes, landmarks) {
+                if (blendshapes) {
+                    const left = blendshapes.mouthSmileLeft ?? 0;
+                    const right = blendshapes.mouthSmileRight ?? 0;
+                    return (left + right) / 2;
+                }
+                const left = landmarks[MOUTH_LEFT];
+                const right = landmarks[MOUTH_RIGHT];
+                const top = landmarks[MOUTH_TOP];
+                const bottom = landmarks[MOUTH_BOTTOM];
+                const width = dist(left, right);
+                const height = dist(top, bottom) || 0.0001;
+                return Math.min(width / height / 6, 1);
+            }
+
+            function setStatus(text, type = "") {
+                statusBox.textContent = text;
+                statusBox.className = "status" + (type ? ` ${type}` : "");
+            }
+
+            function dist(a, b) {
+                return Math.hypot(a.x - b.x, a.y - b.y);
+            }
+
+            function eyeAspectRatio(landmarks, idx) {
+                const [p1, p2, p3, p4, p5, p6] = idx.map((i) => landmarks[i]);
+                const vertical = dist(p2, p6) + dist(p3, p5);
+                const horizontal = dist(p1, p4);
+                return vertical / (2 * horizontal);
+            }
+
+            function estimateYaw(landmarks) {
+                const nose = landmarks[NOSE_TIP];
+                const left = landmarks[LEFT_CHEEK];
+                const right = landmarks[RIGHT_CHEEK];
+                const midX = (left.x + right.x) / 2;
+                const halfWidth = (right.x - left.x) / 2 || 0.0001;
+                return (nose.x - midX) / halfWidth;
+            }
+
+            function estimatePitch(landmarks) {
+                const nose = landmarks[NOSE_TIP];
+                const forehead = landmarks[FOREHEAD];
+                const chin = landmarks[CHIN];
+                const midY = (forehead.y + chin.y) / 2;
+                const halfHeight = (chin.y - forehead.y) / 2 || 0.0001;
+                return (nose.y - midY) / halfHeight;
+            }
+
+            function faceWidthNorm(landmarks) {
+                const left = landmarks[LEFT_CHEEK];
+                const right = landmarks[RIGHT_CHEEK];
+                return Math.abs(right.x - left.x);
+            }
+
+            function resetFlow() {
+                activeSteps = buildChallengeSequence();
+                currentStep = 0;
+                passed = false;
+                failed = false;
+                stepCompleting = false;
+                yawSamples = [];
+                pitchSamples = [];
+                stepStartedAt = performance.now();
+                restartBtn.disabled = true;
+                setStatus("Follow the instructions on screen.");
+                clearSnapshotGallery();
+                updateChallengeCaption();
+                hideActionIndicator();
+                updateDialogStepLabel();
+            }
+
+            function advanceAfterStep() {
+                currentStep += 1;
+                yawSamples = [];
+                pitchSamples = [];
+                wrongActionStreak = 0;
+                stepStartedAt = performance.now();
+
+                if (currentStep >= activeSteps.length) {
+                    const requiredSnapshots = getRequiredSnapshotMin();
+                    if (faceSnapshots.length < requiredSnapshots) {
+                        failCheck(
+                            `Only ${faceSnapshots.length} front-facing photo(s) captured during the check. ` +
+                                `Need at least ${requiredSnapshots}. Restart and look straight at the camera when centered.`,
+                        );
+                        return;
+                    }
+                    passed = true;
+                    verificationEnded = false;
+                    clearFaceMask();
+                    setStatus(
+                        `Active liveness completed (${faceSnapshots.length} front photo(s)). Verifying with server…`,
+                        "pass",
+                    );
+                    updateChallengeCaption();
+                    renderSnapshotGallery();
+                    hideActionIndicator();
+                    stopCamera();
+                    tryAutoSubmit();
+                    return;
+                }
+
+                pendingSnapshot = true;
+                updateChallengeCaption();
+            }
+
+            function completeStep() {
+                if (stepCompleting) return;
+                stepCompleting = true;
+                flashStepSuccess();
+                // After completing a step, users often pass quickly through a front-facing pose.
+                // Encourage snapshot capture by relaxing the front-facing gate briefly.
+                pendingSnapshot = true;
+                setTimeout(() => {
+                    stepCompleting = false;
+                    advanceAfterStep();
+                }, 420);
+            }
+
+            function failCheck(reason) {
+                failed = true;
+                updateChallengeCaption();
+                hideActionIndicator();
+                hideGuideUI();
+                clearFaceMask();
+                challengeCaption.textContent = "Failed";
+                challengeCaption.classList.remove("pass");
+                challengeCaption.classList.add("fail");
+                endVerificationSession({
+                    ok: false,
+                    title: "Verification failed",
+                    detail: reason,
+                    statusText: reason,
+                    statusType: "fail",
+                    allowLivenessRetry: canRetryLiveness(),
+                });
+                if (!canRetryLiveness()) {
+                    notifyHostVerifyResult({ ok: false, error: reason });
+                }
+            }
+
+            function evaluateStep(landmarks, blendshapes) {
+                const step = currentChallenge()?.id;
+                if (!step || passed || failed || stepCompleting) return;
+
+                const ear =
+                    (eyeAspectRatio(landmarks, LEFT_EYE) +
+                        eyeAspectRatio(landmarks, RIGHT_EYE)) /
+                    2;
+
+                const yaw = estimateYaw(landmarks);
+                yawSamples.push(yaw);
+                if (yawSamples.length > POSE_WINDOW) yawSamples.shift();
+                const smoothYaw =
+                    yawSamples.reduce((a, b) => a + b, 0) / yawSamples.length;
+
+                const pitch = estimatePitch(landmarks);
+                pitchSamples.push(pitch);
+                if (pitchSamples.length > POSE_WINDOW) pitchSamples.shift();
+                const smoothPitch =
+                    pitchSamples.reduce((a, b) => a + b, 0) /
+                    pitchSamples.length;
+                const orientedYaw = poseYaw(smoothYaw);
+
+                const width = faceWidthNorm(landmarks);
+                const smile = smileScore(blendshapes, landmarks);
+                const blinkBs = blinkBlendScore(blendshapes);
+
+                const secondsLeft = getChallengeSecondsLeft();
+                if (!EMBED) {
+                    metricsEl.textContent = `EAR: ${ear.toFixed(3)} | Yaw: ${smoothYaw.toFixed(3)} | Pitch: ${smoothPitch.toFixed(3)} | Smile: ${smile.toFixed(3)} | Time: ${secondsLeft}s | Photos: ${faceSnapshots.length}/${SNAPSHOT_MAX}`;
+                } else {
+                    metricsEl.textContent = "";
+                }
+
+                refreshTimedChallengeCaption();
+
+                tryCaptureSnapshot(
+                    landmarks,
+                    smoothYaw,
+                    smoothPitch,
+                    ear,
+                    blinkBs,
+                    width,
+                );
+
+                if (performance.now() - stepStartedAt > CHALLENGE_DURATION_MS) {
+                    const ui = CHALLENGE_UI[step];
+                    const label = ui?.title || currentChallenge()?.caption;
+                    const timeoutMsg = label
+                        ? `Time expired: complete "${label}" within ${CHALLENGE_DURATION_MS / 1000} seconds.`
+                        : `Time expired: center your face in the frame within ${CHALLENGE_DURATION_MS / 1000} seconds.`;
+                    failCheck(timeoutMsg);
+                    return;
+                }
+
+                const inWrongActionGrace =
+                    performance.now() - stepStartedAt < WRONG_ACTION_GRACE_MS;
+                const towardCorrect = isMovingTowardCorrectPose(
+                    step,
+                    smoothYaw,
+                    smoothPitch,
+                );
+                const wrongAction =
+                    inWrongActionGrace || towardCorrect
+                        ? null
+                        : getStrongWrongAction(step, smoothYaw, smoothPitch);
+
+                if (wrongAction) {
+                    wrongActionStreak += 1;
+                    if (wrongActionStreak >= WRONG_ACTION_CONFIRM_FRAMES) {
+                        const expected =
+                            currentChallenge()?.caption ||
+                            ACTION_LABELS[step] ||
+                            step;
+                        const got = ACTION_LABELS[wrongAction] || wrongAction;
+                        failCheck(
+                            `Wrong action: expected "${expected}", but detected "${got}".`,
+                        );
+                        return;
+                    }
+                } else {
+                    wrongActionStreak = 0;
+                }
+
+                let stepDone = false;
+
+                if (step === "face") {
+                    stepDone = width >= FACE_SIZE_MIN;
+                } else if (step === "left") {
+                    stepDone = orientedYaw >= YAW_USER_LEFT_MIN;
+                } else if (step === "right") {
+                    stepDone = orientedYaw <= YAW_USER_RIGHT_MAX;
+                } else if (step === "up") {
+                    stepDone = smoothPitch <= PITCH_UP_THRESHOLD;
+                } else if (step === "down") {
+                    stepDone = smoothPitch >= PITCH_DOWN_THRESHOLD;
+                } else if (step === "smile") {
+                    stepDone = smile >= SMILE_THRESHOLD;
+                }
+
+                if (stepDone) completeStep();
+            }
+
+            function setCameraSwitchActive(facingMode) {
+                cameraFrontBtn?.classList.toggle("active", facingMode === "user");
+                cameraBackBtn?.classList.toggle(
+                    "active",
+                    facingMode === "environment",
+                );
+            }
+
+            function updateCameraSwitchVisibility() {
+                if (!cameraSwitch) return;
+                cameraSwitch.classList.toggle(
+                    "hidden",
+                    !(IS_MOBILE_PHONE && canPickRearCamera),
+                );
+            }
+
+            async function refreshCameraCapabilities() {
+                if (!navigator.mediaDevices?.enumerateDevices) {
+                    canPickRearCamera = IS_MOBILE_PHONE;
+                    updateCameraSwitchVisibility();
+                    return;
+                }
+                try {
+                    const devices =
+                        await navigator.mediaDevices.enumerateDevices();
+                    const videoInputs = devices.filter(
+                        (device) => device.kind === "videoinput",
+                    );
+                    canPickRearCamera =
+                        IS_MOBILE_PHONE && videoInputs.length > 1;
+                } catch {
+                    canPickRearCamera = IS_MOBILE_PHONE;
+                }
+                updateCameraSwitchVisibility();
+            }
+
+            async function switchCameraFacing(facingMode) {
+                if (facingMode === preferredFacingMode || switchingCamera) {
+                    return;
+                }
+                preferredFacingMode = facingMode;
+                setCameraSwitchActive(facingMode);
+                applyPreviewMirror();
+                yawSamples = [];
+                pitchSamples = [];
+                wrongActionStreak = 0;
+                if (!sessionActive || verificationEnded) {
+                    return;
+                }
+                switchingCamera = true;
+                try {
+                    const wasRunning = running;
+                    await initCamera();
+                    if (wasRunning) {
+                        running = true;
+                        loop();
+                    }
+                } finally {
+                    switchingCamera = false;
+                }
+            }
+
+            function waitForVideoReady() {
+                if (video.readyState >= 2 && video.videoWidth && video.videoHeight) {
+                    return Promise.resolve();
+                }
+                return new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        cleanup();
+                        reject(new Error("Camera preview timed out"));
+                    }, 12000);
+                    const onReady = () => {
+                        if (video.videoWidth && video.videoHeight) {
+                            cleanup();
+                            resolve();
+                        }
+                    };
+                    const onError = () => {
+                        cleanup();
+                        reject(new Error("Camera preview failed"));
+                    };
+                    const cleanup = () => {
+                        clearTimeout(timeout);
+                        video.removeEventListener("loadedmetadata", onReady);
+                        video.removeEventListener("loadeddata", onReady);
+                        video.removeEventListener("canplay", onReady);
+                        video.removeEventListener("error", onError);
+                    };
+                    video.addEventListener("loadedmetadata", onReady);
+                    video.addEventListener("loadeddata", onReady);
+                    video.addEventListener("canplay", onReady);
+                    video.addEventListener("error", onError, { once: true });
+                });
+            }
+
+            async function startVideoPlayback() {
+                lockVideoInlinePlayback();
+                if (video.paused) {
+                    try {
+                        await video.play();
+                    } catch (err) {
+                        if (!IS_IOS) {
+                            console.warn("video.play() failed, retrying:", err);
+                            lockVideoInlinePlayback();
+                            await video.play();
+                        }
+                    }
+                }
+                await waitForVideoReady();
+                lockVideoInlinePlayback();
+                forceInlineVideoPresentation();
+            }
+
+            function forceInlineVideoPresentation() {
+                exitNativeVideoFullscreen();
+                exitPictureInPictureSync();
+                lockVideoInlinePlayback();
+            }
+
+            function lockVideoInlinePlayback() {
+                video.setAttribute("playsinline", "true");
+                video.setAttribute("webkit-playsinline", "true");
+                video.setAttribute("muted", "true");
+                video.setAttribute("defaultmuted", "true");
+                video.setAttribute("disablepictureinpicture", "true");
+                video.setAttribute("disableremoteplayback", "true");
+                video.setAttribute(
+                    "controlslist",
+                    "nodownload nofullscreen noremoteplayback",
+                );
+                video.setAttribute("x-webkit-airplay", "deny");
+                video.playsInline = true;
+                video.muted = true;
+                video.defaultMuted = true;
+                video.controls = false;
+                video.disablePictureInPicture = true;
+                if ("disableRemotePlayback" in video) {
+                    video.disableRemotePlayback = true;
+                }
+                // Safari: keep presentation mode inline whenever possible.
+                try {
+                    if (
+                        IS_IOS &&
+                        typeof video.webkitSetPresentationMode === "function" &&
+                        video.webkitPresentationMode !== "inline"
+                    ) {
+                        video.webkitSetPresentationMode("inline");
+                    }
+                } catch {
+                    /* ignore */
+                }
+                try {
+                    navigator.mediaSession.metadata = null;
+                    navigator.mediaSession.playbackState = "none";
+                } catch {
+                    /* ignore */
+                }
+            }
+
+            function exitNativeVideoFullscreen() {
+                try {
+                    if (typeof video.webkitExitFullscreen === "function") {
+                        video.webkitExitFullscreen();
+                    }
+                    if (typeof video.exitFullscreen === "function") {
+                        video.exitFullscreen();
+                    }
+                    if (
+                        document.fullscreenElement === video ||
+                        document.webkitFullscreenElement === video
+                    ) {
+                        document.exitFullscreen?.();
+                        document.webkitExitFullscreen?.();
+                    }
+                } catch {
+                    /* ignore */
+                }
+            }
+
+            function exitPictureInPictureSync() {
+                try {
+                    if (
+                        typeof video.webkitSetPresentationMode === "function" &&
+                        video.webkitPresentationMode === "picture-in-picture"
+                    ) {
+                        video.webkitSetPresentationMode("inline");
+                    }
+                } catch {
+                    /* ignore */
+                }
+                try {
+                    if (
+                        document.pictureInPictureElement &&
+                        typeof document.exitPictureInPicture === "function"
+                    ) {
+                        document.exitPictureInPicture();
+                    }
+                } catch {
+                    /* ignore */
+                }
+            }
+
+            /** Kill iOS Safari native player / PiP. Stream must be released first (sync). */
+            function suppressSystemVideoChrome({ hardStop = false } = {}) {
+                // Order matters on Safari: kill the MediaStream before awaiting anything,
+                // otherwise Automatic PiP keeps a live "LIVE" window.
+                if (hardStop) {
+                    cameraSuspended = true;
+                    if (rafId) {
+                        cancelAnimationFrame(rafId);
+                        rafId = null;
+                    }
+                    releaseCameraStream();
+                } else {
+                    try {
+                        video.pause();
+                    } catch {
+                        /* ignore */
+                    }
+                }
+                exitNativeVideoFullscreen();
+                exitPictureInPictureSync();
+                try {
+                    navigator.mediaSession.metadata = null;
+                    navigator.mediaSession.playbackState = "none";
+                } catch {
+                    /* ignore */
+                }
+            }
+
+            async function resumeCameraPreviewIfNeeded() {
+                if (!sessionActive || verificationEnded) return;
+                if (document.hidden) return;
+
+                const shouldRun = running || cameraSuspended;
+                if (cameraIsActive() && !cameraSuspended) {
+                    if (shouldRun && !rafId) {
+                        running = true;
+                        loop();
+                    }
+                    return;
+                }
+
+                try {
+                    cameraSuspended = false;
+                    await initCamera();
+                    if (shouldRun) {
+                        running = true;
+                        if (!rafId) loop();
+                    }
+                } catch (err) {
+                    console.warn("Could not resume camera after background:", err);
+                }
+            }
+
+            async function initCamera() {
+                const wasRunning = running;
+                stopCamera({ clearCanvas: false });
+                cameraSuspended = false;
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: preferredFacingMode },
+                        width: { ideal: 1280, min: 640 },
+                        height: { ideal: 720, min: 480 },
+                        frameRate: { ideal: 30, max: 30 },
+                    },
+                    audio: false,
+                });
+                cameraStream = stream;
+
+                const track = stream.getVideoTracks()[0];
+                if (track?.applyConstraints) {
+                    try {
+                        await track.applyConstraints({
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            frameRate: { ideal: 30 },
+                        });
+                    } catch (e) {
+                        console.warn(
+                            "Could not apply preferred camera constraints:",
+                            e,
+                        );
+                    }
+                }
+
+                if (CAMERA_MODE === "image-capture") {
+                    imageCapture = new ImageCapture(track);
+                    if (!(await paintCameraFrameFromCapture())) {
+                        throw new Error("Could not start iOS camera preview");
+                    }
+                    console.info(
+                        `Camera resolution (ImageCapture): ${frameWidth}×${frameHeight}`,
+                    );
+                } else if (CAMERA_MODE === "track-processor") {
+                    trackProcessor = new MediaStreamTrackProcessor({ track });
+                    trackReader = trackProcessor.readable.getReader();
+                    if (!(await paintCameraFrameFromProcessor())) {
+                        throw new Error("Could not start iOS camera preview");
+                    }
+                    console.info(
+                        `Camera resolution (TrackProcessor): ${frameWidth}×${frameHeight}`,
+                    );
+                } else {
+                    lockVideoInlinePlayback();
+                    video.srcObject = stream;
+                    await startVideoPlayback();
+                    forceInlineVideoPresentation();
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    if (USE_CANVAS_PREVIEW) {
+                        paintCameraToCanvas();
+                    } else {
+                        clearCanvasOverlay();
+                    }
+                    console.info(
+                        `Camera resolution: ${video.videoWidth}×${video.videoHeight}`,
+                    );
+                }
+
+                drawingUtils = new DrawingUtils(ctx);
+                applyPreviewMirror();
+                await refreshCameraCapabilities();
+                setCameraSwitchActive(preferredFacingMode);
+                if (wasRunning) {
+                    running = true;
+                }
+            }
+
+            async function initModel() {
+                if (faceLandmarker) return;
+
+                const fileset = await FilesetResolver.forVisionTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm",
+                );
+
+                const modelOptions = {
+                    baseOptions: {
+                        modelAssetPath:
+                            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+                        delegate: "GPU",
+                    },
+                    runningMode: USE_IOS_CANVAS_CAPTURE ? "IMAGE" : "VIDEO",
+                    numFaces: 1,
+                    outputFaceBlendshapes: true,
+                    outputFacialTransformationMatrixes: false,
+                };
+
+                try {
+                    faceLandmarker = await FaceLandmarker.createFromOptions(
+                        fileset,
+                        modelOptions,
+                    );
+                } catch (gpuErr) {
+                    console.warn(
+                        "GPU delegate unavailable, using CPU:",
+                        gpuErr,
+                    );
+                    faceLandmarker = await FaceLandmarker.createFromOptions(
+                        fileset,
+                        {
+                            ...modelOptions,
+                            baseOptions: {
+                                ...modelOptions.baseOptions,
+                                delegate: "CPU",
+                            },
+                        },
+                    );
+                }
+            }
+
+            function drawResults(result) {
+                if (maskHidden || submitting) {
+                    if (USE_CANVAS_PREVIEW && !USE_IOS_CANVAS_CAPTURE) {
+                        paintCameraToCanvas();
+                    }
+                    return;
+                }
+                if (USE_CANVAS_PREVIEW && !USE_IOS_CANVAS_CAPTURE) {
+                    paintCameraToCanvas();
+                } else if (!USE_IOS_CANVAS_CAPTURE) {
+                    clearCanvasOverlay();
+                }
+
+                if (!result.faceLandmarks?.length) {
+                    hideActionIndicator();
+                    return;
+                }
+
+                const landmarks = result.faceLandmarks[0];
+                const stepId = currentChallenge()?.id;
+                const w = canvas.width;
+                const h = canvas.height;
+                const blendshapes = parseBlendshapes(result);
+
+                const meshAlpha = stepId === "face" ? 0.22 : 0.1;
+                drawingUtils.drawConnectors(
+                    landmarks,
+                    FaceLandmarker.FACE_LANDMARKS_TESSELATION,
+                    {
+                        color: `rgba(56, 189, 248, ${meshAlpha})`,
+                        lineWidth: 0.8,
+                    },
+                );
+                if (stepId === "face" || stepId === "smile") {
+                    drawingUtils.drawConnectors(
+                        landmarks,
+                        FaceLandmarker.FACE_LANDMARKS_CONTOURS,
+                        { color: "rgba(52, 211, 153, 0.55)", lineWidth: 1.2 },
+                    );
+                }
+                if (stepId === "face") {
+                    drawFaceOvalMesh(landmarks, 0.85, 2.5);
+                }
+
+                hideActionIndicator();
+
+                if (stepId === "smile") {
+                    drawSmileGuide(landmarks);
+                }
+
+                setNoFaceHintVisible(false);
+                noFaceFrames = 0;
+                updateFaceFitHint(landmarks);
+                evaluateStep(landmarks, blendshapes);
+            }
+
+            async function loop() {
+                if (!running) return;
+                if (cameraSuspended) return;
+                if (frameBusy) {
+                    rafId = requestAnimationFrame(loop);
+                    return;
+                }
+                if (verificationEnded && !submitting) return;
+                if (failed && !submitting) return;
+
+                frameBusy = true;
+                try {
+                    if (USE_IOS_CANVAS_CAPTURE) {
+                        if (!cameraIsActive()) return;
+                        if (!(await paintCameraFrame())) return;
+                    } else {
+                        if (!video.srcObject || video.readyState < 2) return;
+                        paintCameraFrame();
+                    }
+
+                    const result = detectFaces();
+
+                    if (!result.faceLandmarks?.length) {
+                        metricsEl.textContent = "No face detected";
+                        if (!passed && !failed && !submitting && sessionActive) {
+                            noFaceFrames += 1;
+                            setNoFaceHintVisible(
+                                noFaceFrames >= NO_FACE_HINT_FRAMES,
+                            );
+                            faceFitHint.classList.add("hidden");
+                        }
+                        if (!passed && !failed && !submitting) {
+                            if (USE_CANVAS_PREVIEW && !USE_IOS_CANVAS_CAPTURE) {
+                                paintCameraToCanvas();
+                            } else if (!USE_IOS_CANVAS_CAPTURE) {
+                                clearCanvasOverlay();
+                            }
+                            hideActionIndicator();
+                            refreshTimedChallengeCaption();
+                        }
+                    } else if (passed) {
+                        metricsEl.textContent = submitting
+                            ? "Verifying with server…"
+                            : `Front photos (during check): ${faceSnapshots.length}`;
+                        return;
+                    } else if (!maskHidden && !submitting) {
+                        drawResults(result);
+                    } else if (USE_CANVAS_PREVIEW && !USE_IOS_CANVAS_CAPTURE) {
+                        paintCameraToCanvas();
+                    } else if (!USE_IOS_CANVAS_CAPTURE) {
+                        clearCanvasOverlay();
+                    }
+                } finally {
+                    frameBusy = false;
+                    if (running) {
+                        rafId = requestAnimationFrame(loop);
+                    }
+                }
+            }
+
+            async function beginVerification() {
+                if (sessionActive && !verificationEnded) return;
+                if (livenessAttemptCount >= MAX_LIVENESS_ATTEMPTS) return;
+
+                livenessAttemptCount += 1;
+
+                if (livenessAttemptCount > 1 && EMBED) {
+                    postRetryToHost();
+                }
+
+                try {
+                    verificationEnded = false;
+                    failed = false;
+                    passed = false;
+                    submitting = false;
+                    updateLandingButtons({ starting: true });
+                    openVerifyDialog();
+                    hideStageOverlays();
+                    clearSnapshotGallery();
+                    challengeCaption.classList.remove("pass", "fail");
+                    challengeCaption.classList.add("empty");
+                    metricsEl.textContent = "";
+
+                    setStatus("Starting camera…");
+                    if (!faceLandmarker) {
+                        setStatus("Loading face model…");
+                        await initModel();
+                        modelReady = true;
+                    }
+                    await initCamera();
+
+                    resetFlow();
+                    running = true;
+                    verificationEnded = false;
+                    setSessionActive(true);
+                    loop();
+                } catch (err) {
+                    console.error(err);
+                    const msg = formatCameraError(err);
+                    endVerificationSession({
+                        ok: false,
+                        title: "Could not start verification",
+                        detail: msg,
+                        statusText: msg,
+                        statusType: "fail",
+                        allowLivenessRetry: canRetryLiveness(),
+                    });
+                    if (!canRetryLiveness()) {
+                        notifyHostVerifyResult({ ok: false, error: msg });
+                    }
+                }
+            }
+
+            async function preloadModel() {
+                setStatus(
+                    EMBED
+                        ? "Preparing face verification…"
+                        : "Preparing… Click Start Verification when ready.",
+                );
+                updateLandingButtons();
+                try {
+                    await initModel();
+                    modelReady = true;
+                    if (EMBED) {
+                        await beginVerification();
+                        return;
+                    }
+                    setStatus("Ready. Click Start Verification to begin.");
+                } catch (err) {
+                    console.warn("Background model preload failed:", err);
+                    if (EMBED) {
+                        postResultToHost({
+                            ok: false,
+                            error: String(err?.message || err),
+                        });
+                        return;
+                    }
+                    setStatus(
+                        "Click Start Verification to begin (model loads on start).",
+                    );
+                }
+                updateLandingButtons();
+            }
+
+            function onCloseDialog() {
+                if (sessionActive && !verificationEnded) return;
+                stopCamera();
+                closeVerifyDialog();
+            }
+
+            document.addEventListener("keydown", (e) => {
+                if (e.key !== "Escape") return;
+                if (verifyDialog.classList.contains("hidden")) return;
+                if (sessionActive && !verificationEnded) return;
+                onCloseDialog();
+            });
+
+            // Guard inline playback when a <video> element is used (Android / desktop / old iOS).
+            if (!USE_IOS_CANVAS_CAPTURE) {
+                video.addEventListener("webkitbeginfullscreen", (e) => {
+                    e.preventDefault?.();
+                    forceInlineVideoPresentation();
+                });
+                video.addEventListener("fullscreenchange", exitNativeVideoFullscreen);
+                video.addEventListener(
+                    "webkitfullscreenchange",
+                    exitNativeVideoFullscreen,
+                );
+                video.addEventListener("enterpictureinpicture", (e) => {
+                    e.preventDefault?.();
+                    forceInlineVideoPresentation();
+                });
+                video.addEventListener("leavepictureinpicture", () => {
+                    forceInlineVideoPresentation();
+                });
+                video.addEventListener("webkitpresentationmodechanged", () => {
+                    if (
+                        video.webkitPresentationMode === "picture-in-picture" ||
+                        video.webkitPresentationMode === "fullscreen"
+                    ) {
+                        forceInlineVideoPresentation();
+                    }
+                });
+                video.addEventListener("playing", () => {
+                    forceInlineVideoPresentation();
+                });
+                lockVideoInlinePlayback();
+            }
+
+            document.addEventListener(
+                "visibilitychange",
+                () => {
+                    if (document.hidden) {
+                        suppressSystemVideoChrome({ hardStop: true });
+                    } else {
+                        resumeCameraPreviewIfNeeded();
+                    }
+                },
+                true,
+            );
+            window.addEventListener(
+                "pagehide",
+                () => suppressSystemVideoChrome({ hardStop: true }),
+                true,
+            );
+            document.addEventListener(
+                "freeze",
+                () => suppressSystemVideoChrome({ hardStop: true }),
+                true,
+            );
+
+            startVerificationBtn.addEventListener("click", beginVerification);
+            restartBtn.addEventListener("click", beginVerification);
+            resultRetryBtn.addEventListener("click", beginVerification);
+            closeDialogBtn.addEventListener("click", onCloseDialog);
+            verifyDialogBackdrop.addEventListener("click", onCloseDialog);
+            submitBtn.addEventListener("click", submitSnapshots);
+            cameraFrontBtn?.addEventListener("click", () =>
+                switchCameraFacing("user"),
+            );
+            cameraBackBtn?.addEventListener("click", () =>
+                switchCameraFacing("environment"),
+            );
+            updateSubmitButton();
+            initDirectionArcs();
+            preloadModel();
+        </script>
+    </body>
+</html>
