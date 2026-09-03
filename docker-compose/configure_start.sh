@@ -158,6 +158,8 @@ if ls "$workingDir"/static/js/main.*.js >/dev/null 2>&1; then
   sed -i 's|20260902n|20260902t|g' "$workingDir"/static/js/main.*.js || true
   # Authorize → login: full page load so #oauth payload is visible to Login on first paint.
   sed -i 's|h("/login"+n,{replace:!0})|window.location.replace("/login"+n)|g' "$workingDir"/static/js/main.*.js || true
+  # Axios interceptor must reject so TOTP await settles and spinner clears.
+  sed -i 's|e(wc,{state:r})})|e(wc,{state:r});return Promise.reject(t)})|g' "$workingDir"/static/js/main.*.js || true
   # Login: read OAuth hash from window.location (RR client-nav drops useLocation().hash).
   if ls "$workingDir"/static/js/main.*.js >/dev/null 2>&1; then
     node - "$workingDir"/static/js/main.*.js <<'NODE'
@@ -181,6 +183,16 @@ for (const file of files) {
     text = text.split(oldCfg).join(newCfg);
     changed = true;
     console.log("patched oauth configs guard in", file);
+  }
+  // Revert any prior Totp Promise.race timeout patch (it could leave v undefined).
+  const badTotp =
+    'w({state:Tg,msg:"authenticating_msg"});let v;try{v=await Promise.race([h(s,c,f),new Promise(function(_,r){setTimeout(function(){r(Object.assign(new Error("totp_timeout"),{code:"totp_invalid"}))},8e3)})])}finally{w({state:Ng,msg:""})}';
+  const goodTotp =
+    'w({state:Tg,msg:"authenticating_msg"});const v=await h(s,c,f);w({state:Ng,msg:""});';
+  if (text.includes(badTotp)) {
+    text = text.replace(badTotp, goodTotp);
+    changed = true;
+    console.log("reverted Totp Promise.race patch in", file);
   }
   if (changed) fs.writeFileSync(file, text);
 }
@@ -207,14 +219,14 @@ echo "generation of env-config file completed!"
 
 # VeriFayda theme overrides (visible TOTP digits, login icons, footer/header logos).
 if [ -f "$workingDir/theme/verifayda-overrides.css" ]; then
-  sed -i 's|/theme/verifayda-overrides.css?v=[^"]*|/theme/verifayda-overrides.css?v=20260903b|g' "$workingDir/index.html" 2>/dev/null || true
+  sed -i 's|/theme/verifayda-overrides.css?v=[^"]*|/theme/verifayda-overrides.css?v=20260903j|g' "$workingDir/index.html" 2>/dev/null || true
   if ! grep -q 'verifayda-overrides.css' "$workingDir/index.html" 2>/dev/null; then
-    sed -i 's|</head>|<link rel="stylesheet" href="/theme/verifayda-overrides.css?v=20260903b"></head>|' "$workingDir/index.html" || true
+    sed -i 's|</head>|<link rel="stylesheet" href="/theme/verifayda-overrides.css?v=20260903j"></head>|' "$workingDir/index.html" || true
   fi
 fi
 
 # Broken RP logos: load fixes from external JS (never inline — awk # comments break scripts).
-UI_FIX_VER="20260903b"
+UI_FIX_VER="20260903j"
 if [ -f "$workingDir/index.html" ]; then
   tmp_html="${workingDir}/index.html.fallback"
   awk -v ver="$UI_FIX_VER" '

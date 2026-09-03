@@ -24,6 +24,45 @@ const fanInputCustomClass =
 
 const TOTP_LENGTH = 6;
 
+const mapTotpErrorCode = (rawCode, digitEnteredAt) => {
+  const code = String(rawCode || '').trim();
+  if (
+    code === 'totp_expired' ||
+    code === 'expired' ||
+    /expired/i.test(code)
+  ) {
+    return 'totp_expired';
+  }
+  if (
+    code === 'totp_not_enrolled' ||
+    code === 'not_enrolled' ||
+    /not.?enroll/i.test(code)
+  ) {
+    return 'totp_not_enrolled';
+  }
+  // Wrong code, generic auth failure, or request timeout → show clear invalid message.
+  // If digits sat unused for >35s, prefer expired messaging.
+  const looksWrong =
+    !code ||
+    code === 'totp_invalid' ||
+    code === 'invalid_challenge' ||
+    code === 'invalid_challenge_format' ||
+    code === 'invalid_challenge_length' ||
+    code === 'auth_failed' ||
+    code === 'authentication_failed_msg' ||
+    code === 'timeout' ||
+    code === 'ECONNABORTED' ||
+    code === 'proxy_error' ||
+    code === 'upstream_error';
+  if (looksWrong) {
+    if (digitEnteredAt && Date.now() - digitEnteredAt > 35000) {
+      return 'totp_expired';
+    }
+    return 'totp_invalid';
+  }
+  return code;
+};
+
 export default function Totp({
   param,
   authService,
@@ -54,6 +93,7 @@ export default function Totp({
   const [isBtnDisabled, setIsBtnDisabled] = useState(true);
   const [prevLanguage, setPrevLanguage] = useState(i18n.language);
   const pinRef = useRef(null);
+  const lastDigitAtRef = useRef(0);
 
   useEffect(() => {
     async function loadLangConfig() {
@@ -132,6 +172,40 @@ export default function Totp({
     authenticateTotpUser();
   };
 
+  const showTotpError = (errorCode) => {
+    const mapped = mapTotpErrorCode(errorCode, lastDigitAtRef.current);
+    const hasTotpKey =
+      langConfig?.errors?.totp?.[mapped] !== undefined &&
+      langConfig?.errors?.totp?.[mapped] !== null;
+
+    // Prefer translated totp.* messages; fall back to hardcoded copy so users
+    // never see a blank banner or raw key when langConfig is still loading.
+    const fallbackMsg =
+      mapped === 'totp_expired'
+        ? t2('totp.totp_expired', {
+            defaultValue:
+              'Your Fayda TOTP code has expired. Codes change every 30 seconds — enter the latest code from your authenticator app.',
+          })
+        : mapped === 'totp_not_enrolled'
+          ? t2('totp.totp_not_enrolled', {
+              defaultValue:
+                'Fayda TOTP is not set up for this FAN. Tap Register TOTP below to set it up.',
+            })
+          : t2('totp.totp_invalid', {
+              defaultValue:
+                'Incorrect Fayda TOTP code. Check the 6-digit code in your authenticator app and try again.',
+            });
+
+    setErrorBanner({
+      errorCode: hasTotpKey ? `errors.totp.${mapped}` : fallbackMsg,
+      show: true,
+      mapped,
+    });
+    setStatus({ state: states.ERROR, msg: '' });
+    pinRef.current?.clear?.();
+    setTotpValue('');
+  };
+
   const authenticateTotpUser = async () => {
     try {
       setErrorBanner(null);
@@ -155,36 +229,28 @@ export default function Totp({
 
       setStatus({ state: states.LOADING, msg: 'authenticating_msg' });
 
+      // Wait only for eSignet → verifier response; show error as soon as it returns.
       const authenticateResponse = await post_AuthenticateUser(
         transactionId,
         ID,
         challengeList
       );
 
-      setStatus({ state: states.LOADED, msg: '' });
+      const errors = authenticateResponse?.errors;
+      const response = authenticateResponse?.response;
 
-      const { response, errors } = authenticateResponse;
-
-      if (errors !== null && errors.length > 0) {
-        const errorCodeCondition =
-          langConfig?.errors?.totp?.[errors[0].errorCode] !== undefined &&
-          langConfig?.errors?.totp?.[errors[0].errorCode] !== null;
-
-        if (errorCodeCondition) {
-          setErrorBanner({
-            errorCode: `errors.totp.${errors[0].errorCode}`,
-            show: true,
-          });
-        } else if (errors[0].errorCode === 'invalid_transaction') {
-          redirectOnError(errors[0].errorCode, t2(`${errors[0].errorCode}`));
-        } else {
-          setErrorBanner({
-            errorCode: `errors.${errors[0].errorCode}`,
-            show: true,
-          });
+      if (Array.isArray(errors) && errors.length > 0) {
+        const errorCode = errors[0].errorCode;
+        if (errorCode === 'invalid_transaction') {
+          redirectOnError(errorCode, t2(`${errorCode}`));
+          return;
         }
-        pinRef.current?.clear?.();
-        setTotpValue('');
+        showTotpError(errorCode);
+        return;
+      }
+
+      if (!response) {
+        showTotpError('totp_invalid');
         return;
       }
 
@@ -201,13 +267,18 @@ export default function Totp({
         replace: true,
       });
     } catch (error) {
-      setErrorBanner({
-        errorCode: 'errors.totp.authentication_failed_msg',
-        show: true,
-      });
-      setStatus({ state: states.ERROR, msg: '' });
-      pinRef.current?.clear?.();
-      setTotpValue('');
+      const errorCode =
+        error?.response?.data?.errors?.[0]?.errorCode ||
+        error?.code ||
+        error?.message ||
+        'totp_invalid';
+      showTotpError(errorCode);
+    } finally {
+      setStatus((prev) =>
+        prev.state === states.LOADING
+          ? { state: states.LOADED, msg: '' }
+          : prev
+      );
     }
   };
 
@@ -308,7 +379,11 @@ export default function Totp({
               <PinInput
                 length={TOTP_LENGTH}
                 initialValue=""
-                onChange={(value) => setTotpValue(value)}
+                onChange={(value) => {
+                  lastDigitAtRef.current = Date.now();
+                  setTotpValue(value);
+                  if (errorBanner) onCloseHandle();
+                }}
                 type="numeric"
                 inputMode="number"
                 style={{ padding: '5px 0px', color: '#fff' }}
@@ -317,7 +392,10 @@ export default function Totp({
                   borderBottom: '2px solid #7dd3fc',
                   color: '#ffffff',
                 }}
-                onComplete={(value) => setTotpValue(value)}
+                onComplete={(value) => {
+                  lastDigitAtRef.current = Date.now();
+                  setTotpValue(value);
+                }}
                 autoSelect={true}
                 ref={pinRef}
               />
@@ -328,9 +406,34 @@ export default function Totp({
             <LoadingIndicator size="medium" message={status.msg} />
           )}
 
+          {errorBanner !== null && errorBanner.show && status.state !== states.LOADING && (
+            <p
+              className="mt-3 text-sm font-semibold text-center"
+              style={{ color: '#fecaca' }}
+              role="alert"
+              id="totp-inline-error"
+            >
+              {typeof errorBanner.errorCode === 'string' &&
+              errorBanner.errorCode.startsWith('errors.')
+                ? t2(
+                    errorBanner.errorCode.replace(/^errors\./, ''),
+                    {
+                      defaultValue:
+                        errorBanner.mapped === 'totp_expired'
+                          ? 'Your Fayda TOTP code has expired. Enter the latest code from your authenticator app.'
+                          : errorBanner.mapped === 'totp_not_enrolled'
+                            ? 'Fayda TOTP is not set up for this FAN. Tap Register TOTP below to set it up.'
+                          : 'Incorrect Fayda TOTP code. Please try again.',
+                    }
+                  )
+                : errorBanner.errorCode}
+            </p>
+          )}
+
           <div className="mt-5">
             <FormAction
               disabled={
+                status.state === states.LOADING ||
                 totpValue.length !== TOTP_LENGTH ||
                 !individualId?.trim() ||
                 isBtnDisabled

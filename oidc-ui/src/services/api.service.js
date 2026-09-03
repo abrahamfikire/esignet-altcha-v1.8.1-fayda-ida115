@@ -69,7 +69,8 @@ export const setupResponseInterceptor = (navigate) => {
       const status = error?.response?.status;
       if (status && allErrorStatusCodes.includes(status)) {
         navigate(SOMETHING_WENT_WRONG, { state: { code: status } });
-        return;
+        // Must reject so callers (e.g. TOTP authenticate) leave loading state.
+        return Promise.reject(error);
       }
       const message = error?.message || 'Unknown error occurred';
       const rejection = error instanceof Error ? error : new Error(message);

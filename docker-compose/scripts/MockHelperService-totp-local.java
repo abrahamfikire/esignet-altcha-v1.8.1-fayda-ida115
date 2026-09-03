@@ -68,7 +68,7 @@ import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
-import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -175,16 +175,17 @@ public class MockHelperService {
                 if (Objects.equals(authChallenge.getAuthFactorType(), "PIN")) {
                     kycAuthRequestDto.setPin(authChallenge.getChallenge());
                 } else if (Objects.equals(authChallenge.getAuthFactorType(), "TOTP")) {
-                    // VeriFayda TOTP UI: optionally call Fayda /v1/totp/verify, then seed mock OTP for kyc-auth
+                    // Always call Fayda verifier when configured. totp-mock-otp is ONLY
+                    // used to seed mock-identity AFTER a successful external verify —
+                    // never accept a user-typed mock code as a shortcut.
                     String otpForMock = authChallenge.getChallenge();
-                    boolean localMock = this.totpMockOtp != null
-                            && this.totpMockOtp.equals(authChallenge.getChallenge());
-                    if (localMock) {
-                        log.info("Local mock TOTP accepted for individualId={}", (Object) kycAuthDto.getIndividualId());
-                    } else if (this.totpVerifyUrl != null && !this.totpVerifyUrl.isBlank()) {
+                    if (this.totpVerifyUrl != null && !this.totpVerifyUrl.isBlank()) {
                         this.verifyTotpWithExternalService(
                                 kycAuthDto.getIndividualId(), authChallenge.getChallenge());
                         otpForMock = this.totpMockOtp;
+                    } else if (this.totpMockOtp == null
+                            || !this.totpMockOtp.equals(authChallenge.getChallenge())) {
+                        throw new KycAuthException("totp_invalid");
                     }
                     try {
                         this.sendOtpMock(
@@ -279,7 +280,9 @@ public class MockHelperService {
         catch (KycAuthException e) {
             throw e;
         }
-        catch (HttpStatusCodeException e) {
+        catch (RestClientResponseException e) {
+            // Spring 6: HttpClientErrorException extends RestClientResponseException
+            // (HttpStatusCodeException is no longer in the hierarchy).
             log.error("TOTP verify HTTP {} body={}", (Object)e.getStatusCode(), (Object)e.getResponseBodyAsString());
             try {
                 Map responseMap = this.objectMapper.readValue(e.getResponseBodyAsString(), Map.class);
@@ -289,12 +292,12 @@ public class MockHelperService {
                 throw ke;
             }
             catch (Exception parseEx) {
-                throw new KycAuthException("auth_failed");
+                throw new KycAuthException("totp_invalid");
             }
         }
         catch (Exception e) {
             log.error("External TOTP verify failed", (Throwable)e);
-            throw new KycAuthException("auth_failed");
+            throw new KycAuthException("totp_invalid");
         }
     }
 

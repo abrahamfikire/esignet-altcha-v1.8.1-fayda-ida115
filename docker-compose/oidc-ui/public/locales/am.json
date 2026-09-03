@@ -140,22 +140,26 @@
     "scan_fan_qr_retry": "እንደገና ይሞክሩ"
   },
   "totp": {
-    "sign_in_with_totp": "TOTP ኮድ",
-    "enter_faydapass_code": "ከauthenticator app የ6 አሃዝ ኮድዎን ያስገቡ",
+    "sign_in_with_totp": "የፋይዳ TOTP",
+    "enter_faydapass_code": "ከauthenticator app የ6 አሃዝ የፋይዳ TOTP ኮድ ያስገቡ",
     "verify": "ያረጋግጡ",
     "vid_label_text": "የፋይዳ ቁጥርዎን (FAN ወይም FCN) ያስገቡ",
     "vid_placeholder": "የእርስዎን FAN (የፋይዳ ተለዋጭ ቁጥር) ወይም FCN (የፋይዳ ካርድ ቁጥር) ያስገቡ",
     "vid": "FAN/FCN",
     "vid_info": "እባክዎ ይህን መስክ ይሙሉ",
     "totp_placeholder": "123456",
-    "setup_heading": "Authenticator app ይመዝገቡ",
-    "setup_intro": "QR ኮዱን በauthenticator app ይቃኙ፣ затем የመጀመሪያውን 6-አሃዝ ኮድ ለማግበር ያስገቡ።",
+    "setup_heading": "የፋይዳ TOTP ይመዝገቡ",
+    "setup_intro": "QR ኮዱን በauthenticator app ይቃኙ፣ ከዚያ የመጀመሪያውን 6-አሃዝ ኮድ ያስገቡ።",
     "setup_toggle": "TOTP ይመዝገቡ",
     "setup_first_time": "ለመጀመሪያ ጊዜ ነው?",
     "setup_generate": "QR ኮድ ይፍጠሩ",
-    "setup_confirm_label": "ለማግበር ከመተግበሪያዎ የ6 አሃዝ ኮድ ያስገቡ",
-    "setup_confirm_btn": "TOTP ያረጋግጡ እና ያግብሩ",
-    "setup_success": "TOTP ዝግጁ ነው። በauthenticator ይግቡ።"
+    "setup_confirm_label": "ለማረጋገጥ ከመተግበሪያው የ6-አሃዝ ኮድ ያስገቡ",
+    "setup_confirm_btn": "የፋይዳ TOTP ያግብሩ",
+    "setup_success": "የፋይዳ TOTP ዝግጁ ነው። በauthenticator app ይግቡ።",
+    "setup_fan_label": "FAN ወይም FCN ያስገቡ",
+    "totp_not_enrolled": "ለዚህ FAN የፋይዳ TOTP አልተዘጋጀም። ከታች Register TOTP ይጫኑ።",
+    "totp_invalid": "የተሳሳተ የፋይዳ TOTP ኮድ። authenticator app ያረጋግጡና እንደገና ይሞክሩ።",
+    "totp_expired": "የፋይዳ TOTP ኮድዎ ጊዜው አልፏል። ኮዶች በየ30 ሰከንድ ይቀየራሉ — የአሁኑን ኮድ ያስገቡ።"
   },
   "signInOption": {
     "login_option_heading": "እንዴት መግባት እንደሚፈልጉ ይምረጡ:",
@@ -165,7 +169,7 @@
     "BIO": "ባዮሜትሪክስ",
     "QRCode": "QR ኮድ",
     "OTP": "ኮድ",
-    "TOTP": "TOTP ኮድ",
+    "TOTP": "የፋይዳ TOTP",
     "PWD": "ይለፍ ቃል",
     "KBA": "ዝርዝሮች",
     "walletName": "ኢንጂ",
@@ -177,8 +181,8 @@
     "register": "ይመዝገቡ",
     "otp_tooltip_question": "OTP ወይም ኮድ ምንድን ነው?",
     "otp_tooltip_answer": "ኦቲፒ ወይም ኮድ በኤስኤምኤስ ወይም በተመዘገበ ኢሜል ወደ ተመዝጋቢው ስልክዎ የተላከ የአንድ ጊዜ የይለፍ ቃል ነው።",
-    "totp_tooltip_question": "VeriFayda ምንድን ነው?",
-    "totp_tooltip_answer": "VeriFayda ለማንነትዎ የጊዜ ላይ የተመሰረተ ኮድ የሚፈጥር ደህንነቱ የተጠበቀ የማረጋገጫ መተግበሪያ ነው።",
+    "totp_tooltip_question": "የፋይዳ TOTP ምንድን ነው?",
+    "totp_tooltip_answer": "የፋይዳ TOTP የጊዜ ላይ የተመሰረተ የአንድ ጊዜ የይለፍ ቃል ነው — ከማረጋገጫ መተግበሪያዎ የሚመጣ የ6 አሃዝ ኮድ ሲሆን ለደህንነት በየ30 ሰከንድ ይቀየራል።",
     "bio_tooltip_question": "ባዮሜትሪክስ ምንድን ነው?",
     "bio_tooltip_answer": "ባዮሜትሪክስ ማለት የእርስዎን የጣት አሻራ፣ የአይን አሻራ እና የፊት ገፅ ያጠቃልላል።"
   },
@@ -202,7 +206,7 @@
     "subheader_text": {
       "all_login_options": "እባክዎን የመግቢያ አማራጭ ይምረጡ",
       "otp_login": "የፋይዳ ቁጥርዎን (FAN ወይም FCN) ያስገቡ",
-      "totp_login": "እባክዎን የእርስዎን FAN እና የVeriFayda ኮድ ያስገቡ",
+      "totp_login": "እባክዎን የእርስዎን FAN እና የፋይዳ TOTP ኮድ ያስገቡ",
       "biometrics_login": "እባክዎን የእርስዎን FAN ያስገቡ እና በባዮሜትሪክ መሳሪያ ያረጋግጡ",
       "pin_login": "እባክዎን የእርስዎን FAN እና ፒን ያስገቡ",
       "password_login": "እባክዎን የእርስዎን FAN እና ይለፍ ቃል ያስገቡ",
@@ -232,7 +236,7 @@
     "otp_info": "ከፋይዳ የተላከለዎት FAN (የፋይዳ ተለዋጭ ቁጥር) ወይም FCN (የፋይዳ ካርድ ቁጥር)",
     "bio_info": "ከፋይዳ የተላከለዎት FAN (የፋይዳ ተለዋጭ ቁጥር) ወይም FCN (የፋይዳ ካርድ ቁጥር)",
     "pin_info": "ከፋይዳ የተላከለዎት FAN (የፋይዳ ተለዋጭ ቁጥር) ወይም FCN (የፋይዳ ካርድ ቁጥር)",
-    "faydapass_info": "ከVeriFayda መተግበሪያዎ የ6 አሃዝ ኮድ ያስገቡ።",
+    "faydapass_info": "ከማረጋገጫ መተግበሪያዎ የ6 አሃዝ የፋይዳ TOTP ኮድ ያስገቡ።",
     "username_info": "ከፋይዳ የተላከለዎት FAN (የፋይዳ ተለዋጭ ቁጥር) ወይም FCN (የፋይዳ ካርድ ቁጥር)"
   },
   "errors": {
@@ -492,15 +496,19 @@
       "IDA-MLC-018": "የተሳሳተ ፒን። እባክዎን እንደገና ይሞክሩ።"
     },
     "totp": {
-      "auth_failed": "የተሳሳተ ኮድ። authenticator app ክፈት እና የአሁኑ 6-አሃዝ ኮድ ያስገቡ።",
-      "totp_expired": "ኮድዎ ጊዜው አልፏል። ኮዶች በ30 ሰከንድ ይለወጣሉ — ከauthenticator app የአሁኑን ኮድ ያስገቡ።",
-      "totp_invalid": "የተሳሳተ ኮድ። በauthenticator app ያለውን 6-አሃዝ ኮድ ያረጋግጡ እና እንደገና ይሞክሩ።",
-      "totp_not_enrolled": "ለዚህ FAN authenticator app አልተ 설정ም። «TOTP ይመዝገቡ» ይጫኑ።",
-      "authentication_failed_msg": "TOTP ማረጋገጫ አልተሳካም",
+      "auth_failed": "የተሳሳተ የፋይዳ TOTP ኮድ። እባክዎን እንደገና ይሞክሩ።",
+      "totp_expired": "የፋይዳ TOTP ኮድዎ ጊዜው አልፏል። ኮዶች በየ30 ሰከንድ ይቀየራሉ — የአሁኑን ኮድ ያስገቡ።",
+      "totp_invalid": "የተሳሳተ የፋይዳ TOTP ኮድ። authenticator app ያረጋግጡና እንደገና ይሞክሩ።",
+      "totp_not_enrolled": "ለዚህ FAN የፋይዳ TOTP አልተዘጋጀም። ከታች Register TOTP ይጫኑ።",
+      "authentication_failed_msg": "የፋይዳ TOTP ማረጋገጫ አልተሳካም",
       "IDA-MLC-018": "የተሳሳተ FAN። እባክዎ ትክክለኛ FAN ያስገቡ።",
-      "invalid_challenge": "የተሳሳተ ኮድ። authenticator app ክፈት እና የአሁኑ 6-አሃዝ ኮድ ያስገቡ።",
-      "invalid_challenge_format": "የተሳሳተ ቅርጽ። ከauthenticator app በትክክል 6 አሃዞች ያስገቡ።",
-      "invalid_challenge_length": "ኮድ 6 አሃዞች መሆን አለበት። authenticator app ያረጋግጡ እና እንደገና ይሞክሩ።"
+      "invalid_challenge": "ያስገቡት የፋይዳ TOTP ኮድ ትክክል አይደለም። እባክዎን እንደገና ይሞክሩ።",
+      "invalid_challenge_format": "ያስገቡት የፋይዳ TOTP ኮድ ትክክል አይደለም። እባክዎን እንደገና ይሞክሩ።",
+      "invalid_challenge_length": "ያስገቡት የፋይዳ TOTP ኮድ በጣም አጭር ወይም በጣም ረጅም ነው። እባክዎን ያረጋግጡና እንደገና ይሞክሩ።",
+      "invalid_transaction": "ግብይቱ ልክ ያልሆነ፣ ያልተሳካ ወይም ጊዜው ያለፈበት ነበር",
+      "invalid_individual_id": "ትክክል ያልሆነ FAN ወይም FCN",
+      "send_otp_failed": "የፋይዳ TOTP መግባት አልተሳካም። እባክዎን እንደገና ይሞክሩ።",
+      "send_otp_failed_msg": "የፋይዳ TOTP ማረጋገጫ አልተሳካም"
     },
     "wallet": {
       "invalid_pin": "የተሳሳተ ፒን",
@@ -604,6 +612,10 @@
       "subHeader": "እባክዎ የኢንተርኔት ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።",
       "button": "እንደገና ይሞክሩ"
     },
-    "auth_failed": "የተሳሳተ ወይም ጊዜው ያለፈበት የVeriFayda ኮድ። እባክዎን እንደገና ይሞክሩ።"
+    "auth_failed": "የተሳሳተ ወይም ጊዜው ያለፈበት የፋይዳ TOTP ኮድ። እባክዎን እንደገና ይሞክሩ።",
+    "totp_not_enrolled": "ለዚህ FAN የፋይዳ TOTP አልተዘጋጀም። ከታች Register TOTP ይጫኑ።",
+    "totp_invalid": "የተሳሳተ የፋይዳ TOTP ኮድ። authenticator app ያረጋግጡና እንደገና ይሞክሩ።",
+    "totp_expired": "የፋይዳ TOTP ኮድዎ ጊዜው አልፏል። ኮዶች በየ30 ሰከንድ ይቀየራሉ — የአሁኑን ኮድ ያስገቡ።",
+    "errors.totp_not_enrolled": "ለዚህ FAN የፋይዳ TOTP አልተዘጋጀም። ከታች Register TOTP ይጫኑ።"
   }
 }

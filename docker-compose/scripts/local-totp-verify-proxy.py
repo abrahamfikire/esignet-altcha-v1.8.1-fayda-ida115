@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Local TOTP gateway for VeriFayda eSignet.
 
-- POST /v1/totp/verify — login verify (mock 111111, GA SHA1/SHA256, upstream Fayda)
+- POST /v1/totp/verify — login verify against Fayda upstream (and optional local GA secret)
 - POST /local/totp/enroll — start enrollment, return QR + otpauth URI
 - POST /local/totp/confirm — verify-enrollment to activate credential
+
+Mock code 111111 is NEVER accepted unless ALLOW_MOCK_TOTP=1 is set explicitly.
 """
 from __future__ import annotations
 
@@ -203,7 +205,7 @@ def http_json(
         req.add_header("Authorization", f"Basic {token}")
     opener = build_opener(cookie_jar)
     try:
-        with opener.open(req, timeout=25) as resp:
+        with opener.open(req, timeout=10) as resp:
             payload = json.loads(resp.read().decode() or "{}")
             return resp.status, payload
     except urllib.error.HTTPError as e:
@@ -392,50 +394,101 @@ class Handler(BaseHTTPRequestHandler):
         totp = str(req.get("totp") or "")
         individual_id = str(req.get("individualId") or "")
 
-        if totp == MOCK_OTP and (ALLOW_MOCK_OTP or not load_secret()):
+        # Dev-only bypass. Default is OFF so Google Authenticator / Fayda verify is required.
+        if totp == MOCK_OTP and ALLOW_MOCK_OTP:
+            print("ALLOW_MOCK_TOTP: accepting mock code for", individual_id)
             self._json(200, success_payload("Local mock TOTP accepted."))
             return
 
+        # Prefer live Fayda verifier first (covers codes enrolled in Google Authenticator).
+        raw = json.dumps(body).encode()
+        upstream_req = urllib.request.Request(UPSTREAM_VERIFY, data=raw, method="POST")
+        upstream_req.add_header(
+            "Content-Type", self.headers.get("Content-Type") or "application/json"
+        )
+        auth = self.headers.get("Authorization")
+        if not auth:
+            auth = "Basic " + base64.b64encode(
+                f"{VERIFY_USER}:{VERIFY_PASS}".encode()
+            ).decode()
+        upstream_req.add_header("Authorization", auth)
+
+        msgs = {
+            "totp_expired": "Your Fayda TOTP code has expired. Enter the latest code.",
+            "totp_not_enrolled": "Fayda TOTP is not set up for this FAN. Register TOTP first.",
+            "totp_invalid": "Incorrect Fayda TOTP code. Please try again.",
+        }
+
+        try:
+            with urllib.request.urlopen(
+                upstream_req, timeout=8, context=SSL_CTX
+            ) as resp:
+                payload = resp.read()
+                if resp.status == 200:
+                    try:
+                        parsed = json.loads(payload.decode())
+                        status = (
+                            (parsed.get("response") or {}).get("status") or ""
+                        ).lower()
+                        if status == "success":
+                            self._raw(
+                                resp.status, resp.headers.get("Content-Type"), payload
+                            )
+                            return
+                        up_errs = parsed.get("errors") or []
+                        if up_errs:
+                            code = str(up_errs[0].get("errorCode") or "totp_invalid")
+                            msg = str(up_errs[0].get("message") or msgs.get(code, code))
+                            # Normalize common upstream codes to UI-friendly ones
+                            if "expir" in code.lower() or "expir" in msg.lower():
+                                code = "totp_expired"
+                            elif "enroll" in code.lower() or "not.?set" in msg.lower():
+                                code = "totp_not_enrolled"
+                            elif code not in msgs:
+                                code = "totp_invalid"
+                            self._json(401, fail_payload(code, msgs.get(code, msg)))
+                            return
+                    except Exception:
+                        pass
+        except urllib.error.HTTPError as e:
+            try:
+                parsed = json.loads(e.read().decode() or "{}")
+                up_errs = parsed.get("errors") or []
+                if up_errs:
+                    code = str(up_errs[0].get("errorCode") or "totp_invalid")
+                    msg = str(up_errs[0].get("message") or msgs.get(code, code))
+                    if "expir" in code.lower() or "expir" in msg.lower():
+                        code = "totp_expired"
+                    elif "enroll" in code.lower():
+                        code = "totp_not_enrolled"
+                    elif code not in msgs:
+                        code = "totp_invalid"
+                    # Fall through to local GA check before failing hard
+                    local_msg = local_totp_match(individual_id, totp)
+                    if local_msg:
+                        print(
+                            "local match after upstream reject:",
+                            individual_id,
+                            totp[:2] + "****",
+                        )
+                        self._json(200, success_payload(local_msg))
+                        return
+                    self._json(401, fail_payload(code, msgs.get(code, msg)))
+                    return
+            except Exception:
+                pass
+        except Exception as e:
+            print("verify upstream failed:", e)
+
+        # Fallback: local Google Authenticator secret from enroll flow (if present)
         local_msg = local_totp_match(individual_id, totp)
         if local_msg:
             print("local match:", individual_id, totp[:2] + "****", local_msg)
             self._json(200, success_payload(local_msg))
             return
 
-        raw = json.dumps(body).encode()
-        upstream_req = urllib.request.Request(UPSTREAM_VERIFY, data=raw, method="POST")
-        upstream_req.add_header("Content-Type", self.headers.get("Content-Type") or "application/json")
-        auth = self.headers.get("Authorization")
-        if not auth:
-            auth = "Basic " + base64.b64encode(f"{VERIFY_USER}:{VERIFY_PASS}".encode()).decode()
-        upstream_req.add_header("Authorization", auth)
-        try:
-            with urllib.request.urlopen(upstream_req, timeout=20, context=SSL_CTX) as resp:
-                payload = resp.read()
-                if resp.status == 200:
-                    try:
-                        parsed = json.loads(payload.decode())
-                        status = ((parsed.get("response") or {}).get("status") or "").lower()
-                        if status == "success":
-                            self._raw(resp.status, resp.headers.get("Content-Type"), payload)
-                            return
-                    except Exception:
-                        pass
-                local_msg = local_totp_match(individual_id, totp)
-                if local_msg:
-                    self._json(200, success_payload(local_msg))
-                    return
-                err = classify_failure(individual_id, totp)
-                self._json(401, fail_payload(err, err))
-        except urllib.error.HTTPError as e:
-            local_msg = local_totp_match(individual_id, totp)
-            if local_msg:
-                self._json(200, success_payload(local_msg))
-                return
-            err = classify_failure(individual_id, totp)
-            self._json(401, fail_payload(err, err))
-        except Exception as e:
-            self._json(502, fail_payload("proxy_error", str(e)))
+        err = classify_failure(individual_id, totp)
+        self._json(401, fail_payload(err, msgs.get(err, err)))
 
     def _json(self, code: int, payload: bytes):
         self.send_response(code)

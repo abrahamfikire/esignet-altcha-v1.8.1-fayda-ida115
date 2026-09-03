@@ -204,23 +204,26 @@
     "scan_fan_qr_retry": "Try again"
   },
   "totp": {
-    "sign_in_with_totp": "TOTP Code",
-    "enter_faydapass_code": "Enter the 6-digit code from your authenticator app",
+    "sign_in_with_totp": "Fayda TOTP",
+    "enter_faydapass_code": "Enter the 6-digit Fayda TOTP code from your authenticator app",
     "verify": "Verify",
     "vid_label_text": "Enter your Fayda Number (FAN or FCN)",
     "vid_placeholder": "Enter Your FAN (Fayda Alias Number) or FCN (Fayda Card Number)",
     "vid": "FAN/FCN",
     "vid_info": "Please fill in this field",
     "totp_placeholder": "123456",
-    "setup_heading": "Register your authenticator app",
+    "setup_heading": "Register Fayda TOTP",
     "setup_intro": "Scan the QR code with your authenticator app, then enter the first 6-digit code to activate.",
     "setup_toggle": "Register TOTP",
     "setup_first_time": "Is this your first time registering?",
     "setup_fan_label": "Enter your FAN or FCN",
     "setup_generate": "Generate QR code",
     "setup_confirm_label": "Enter the 6-digit code from your app to confirm setup",
-    "setup_confirm_btn": "Activate TOTP",
-    "setup_success": "TOTP is ready. Sign in with your authenticator app."
+    "setup_confirm_btn": "Activate Fayda TOTP",
+    "setup_success": "Fayda TOTP is ready. Sign in with your authenticator app.",
+    "totp_not_enrolled": "Fayda TOTP is not set up for this FAN. Tap Register TOTP below to set it up.",
+    "totp_invalid": "Incorrect Fayda TOTP code. Check the 6-digit code in your authenticator app and try again.",
+    "totp_expired": "Your Fayda TOTP code has expired. Codes change every 30 seconds — enter the latest code from your authenticator app."
   },
   "signInOption": {
     "login_option_heading": "Choose How You Want to Login:",
@@ -232,7 +235,7 @@
     "BIO": "Biometrics",
     "QRCode": "QR Code",
     "OTP": "Code",
-    "TOTP": "TOTP Code",
+    "TOTP": "Fayda TOTP",
     "PWD": "Password",
     "walletName": "Inji",
     "preferred_mode_of_login": "Select a preferred mode of login",
@@ -245,8 +248,8 @@
     "login_with": "Login with {{option}}",
     "otp_tooltip_question": "What is OTP or Code?",
     "otp_tooltip_answer": "OTP or Code is one time password sent to your registered phone via SMS or registered email",
-    "totp_tooltip_question": "What is TOTP Code?",
-    "totp_tooltip_answer": "TOTP is a 6-digit code from your authenticator app. It changes every 30 seconds.",
+    "totp_tooltip_question": "What is Fayda TOTP?",
+    "totp_tooltip_answer": "Fayda TOTP is a time-based one-time password — a 6-digit code from your authenticator app that changes every 30 seconds to keep your login secure.",
     "bio_tooltip_question": "What is Biometrics?",
     "bio_tooltip_answer": "Biometrics is your fingerprints, iris or face"
   },
@@ -275,7 +278,7 @@
     "subheader_text": {
       "all_login_options": "Please choose the login option",
       "otp_login": "Enter your Fayda Number (FAN or FCN)",
-      "totp_login": "Please enter your FAN and VeriFayda code",
+      "totp_login": "Please enter your FAN and Fayda TOTP code",
       "biometrics_login": "Please enter your FAN & verify using the Biometric device",
       "pin_login": "Please enter your FAN and PIN",
       "password_login": "Please enter your FAN and password",
@@ -306,7 +309,7 @@
     "otp_info": "Your Fayda issued FAN (Fayda Alias Number) or FCN (Fayda Card Number)",
     "bio_info": "Your Fayda issued FAN (Fayda Alias Number) or FCN (Fayda Card Number)",
     "pin_info": "Your Fayda issued FAN (Fayda Alias Number) or FCN (Fayda Card Number)",
-    "faydapass_info": "Enter the 6-digit code from your VeriFayda app.",
+    "faydapass_info": "Enter the 6-digit Fayda TOTP code from your authenticator app.",
     "username_info": "Your Fayda issued FAN (Fayda Alias Number) or FCN (Fayda Card Number)",
     "caps_on": "Caps lock is on"
   },
@@ -641,17 +644,19 @@
       "invalid_challenge_length": "The PIN you entered is too short or too long. Please verify and try again."
     },
     "totp": {
-      "send_otp_failed": "TOTP login failed. Check that mock-identity is running and your FAN is enrolled.",
-      "send_otp_failed_msg": "TOTP verification failed",
-      "auth_failed": "Incorrect code. Open your authenticator app and enter the current 6-digit code.",
-      "totp_expired": "Your code has expired. Codes change every 30 seconds — enter the latest code from your authenticator app.",
-      "totp_invalid": "Incorrect code. Check the 6-digit code in your authenticator app and try again.",
-      "totp_not_enrolled": "Authenticator app is not set up for this FAN. Tap Register TOTP below to set it up.",
-      "authentication_failed_msg": "TOTP authentication failed",
+      "send_otp_failed": "Fayda TOTP login failed. Please try again.",
+      "send_otp_failed_msg": "Fayda TOTP verification failed",
+      "auth_failed": "Incorrect Fayda TOTP code. Please try again.",
+      "totp_expired": "Your Fayda TOTP code has expired. Codes change every 30 seconds — enter the latest code from your authenticator app.",
+      "totp_invalid": "Incorrect Fayda TOTP code. Check the 6-digit code in your authenticator app and try again.",
+      "totp_not_enrolled": "Fayda TOTP is not set up for this FAN. Tap Register TOTP below to set it up.",
+      "authentication_failed_msg": "Fayda TOTP authentication failed",
       "IDA-MLC-018": "Invalid FAN. Please enter a valid FAN.",
-      "invalid_challenge": "Incorrect code. Check your authenticator app and try the current 6-digit code.",
-      "invalid_challenge_format": "Incorrect code format. Enter exactly 6 digits from your authenticator app.",
-      "invalid_challenge_length": "Code must be 6 digits. Check your authenticator app and try again."
+      "invalid_challenge": "The Fayda TOTP code you entered is not valid. Please try again.",
+      "invalid_challenge_format": "The Fayda TOTP code you entered is not valid. Please try again.",
+      "invalid_challenge_length": "The Fayda TOTP code you entered is too short or too long. Please verify and try again.",
+      "invalid_transaction": "The transaction was invalid, failed, or expired",
+      "invalid_individual_id": "Invalid FAN or FCN"
     },
     "wallet": {
       "failed_to_link": "Failed to Link",
@@ -772,6 +777,10 @@
       "subHeader": "Please check your internet connection and try again.",
       "button": "Try Again"
     },
-    "auth_failed": "Incorrect code. Open your authenticator app and enter the current 6-digit code."
+    "auth_failed": "Incorrect or expired Fayda TOTP code. Please try again.",
+    "totp_not_enrolled": "Fayda TOTP is not set up for this FAN. Tap Register TOTP below to set it up.",
+    "totp_invalid": "Incorrect Fayda TOTP code. Check the 6-digit code in your authenticator app and try again.",
+    "totp_expired": "Your Fayda TOTP code has expired. Codes change every 30 seconds — enter the latest code from your authenticator app.",
+    "errors.totp_not_enrolled": "Fayda TOTP is not set up for this FAN. Tap Register TOTP below to set it up."
   }
 }
