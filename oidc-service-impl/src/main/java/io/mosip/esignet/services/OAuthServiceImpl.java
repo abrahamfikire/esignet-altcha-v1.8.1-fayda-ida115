@@ -128,7 +128,9 @@ public class OAuthServiceImpl implements OAuthService {
         } else {
             validAudience = List.of(discoveryIssuerId + "/oauth/token", (String) discoveryMap.get(ISSUER));
         }
-        tokenService.verifyClientAssertionToken(clientDetailDto.getId(), clientDetailDto.getPublicKey(), tokenRequest.getClient_assertion(), validAudience);
+        boolean jtiRequired = clientDetailDto.getAdditionalConfig(JTI_REQUIRED, false);
+        tokenService.verifyClientAssertionToken(clientDetailDto.getId(), clientDetailDto.getPublicKey(),
+                tokenRequest.getClient_assertion(), validAudience, jtiRequired);
 
         boolean isTransactionVCScoped = isTransactionVCScoped(transaction);
         if(!isTransactionVCScoped) { //if transaction is not VC scoped, only then do KYC exchange
@@ -197,7 +199,9 @@ public class OAuthServiceImpl implements OAuthService {
 
         List<String> validAudience = List.of((String) oauthServerDiscoveryMap.get(PAR_ENDPOINT), (String) oauthServerDiscoveryMap.get(TOKEN_ENDPOINT), (String) discoveryMap.get(ISSUER));
 
-        tokenService.verifyClientAssertionToken(clientDetailDto.getId(), clientDetailDto.getPublicKey(), pushedAuthorizationRequest.getClient_assertion(), validAudience);
+        boolean jtiRequired = clientDetailDto.getAdditionalConfig(JTI_REQUIRED, false);
+        tokenService.verifyClientAssertionToken(clientDetailDto.getId(), clientDetailDto.getPublicKey(),
+                pushedAuthorizationRequest.getClient_assertion(), validAudience, jtiRequired);
 
         String requestUriUniqueId = IdentityProviderUtil.createTransactionId(null);
         String requestUri = PAR_REQUEST_URI_PREFIX + requestUriUniqueId;

@@ -7,6 +7,7 @@ package io.mosip.esignet.services;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.mosip.esignet.altcha.AltchaChallengeService;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.nimbusds.jwt.JWT;
@@ -100,6 +101,9 @@ public class AuthorizationHelperService {
     private CaptchaHelper captchaHelper;
 
     @Autowired
+    private AltchaChallengeService altchaChallengeService;
+
+    @Autowired
     private ClaimsHelperService claimsHelperService;
 
     @Autowired
@@ -123,6 +127,9 @@ public class AuthorizationHelperService {
     @Value("#{'${mosip.esignet.captcha.required}'.split(',')}")
     private List<String> captchaRequired;
 
+    @Value("${mosip.esignet.captcha.provider:legacy}")
+    private String captchaProvider;
+
     @Value("#{${mosip.esignet.supported.credential.scopes}}")
     private List<String> credentialScopes;
 
@@ -143,6 +150,16 @@ public class AuthorizationHelperService {
     }
 
     protected void validateCaptchaToken(String captchaToken) {
+        validateCaptchaToken(captchaToken, "altcha".equalsIgnoreCase(captchaProvider));
+    }
+
+    protected void validateCaptchaToken(String captchaToken, boolean useAltcha) {
+        if (useAltcha) {
+            if (altchaChallengeService == null || !altchaChallengeService.verifyPayload(captchaToken))
+                throw new EsignetException(INVALID_CAPTCHA);
+            return;
+        }
+
         if (captchaHelper == null) {
             log.error("Captcha validator instance is NULL, Unable to validate captcha token");
             throw new EsignetException(FAILED_TO_VALIDATE_CAPTCHA);

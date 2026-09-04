@@ -8,6 +8,8 @@ package io.mosip.esignet.controllers;
 import io.mosip.esignet.api.spi.AuditPlugin;
 import io.mosip.esignet.api.util.Action;
 import io.mosip.esignet.api.util.ActionStatus;
+import io.mosip.esignet.altcha.AltchaChallengeResponse;
+import io.mosip.esignet.altcha.AltchaChallengeService;
 import io.mosip.esignet.core.dto.*;
 import io.mosip.esignet.core.exception.EsignetException;
 import io.mosip.esignet.core.spi.AuthorizationService;
@@ -34,6 +36,14 @@ public class AuthorizationController {
 
     @Autowired
     AuditPlugin auditWrapper;
+
+    @Autowired
+    AltchaChallengeService altchaChallengeService;
+
+    @GetMapping("/altcha/challenge")
+    public AltchaChallengeResponse getAltchaChallenge() throws Exception {
+        return altchaChallengeService.createChallenge();
+    }
 
 
     @Deprecated

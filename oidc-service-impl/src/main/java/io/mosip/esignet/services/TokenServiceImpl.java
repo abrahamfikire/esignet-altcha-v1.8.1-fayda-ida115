@@ -97,7 +97,6 @@ public class TokenServiceImpl implements TokenService {
     private final String JKT = "jkt";
     
     private static Set<String> REQUIRED_TOKEN_CLAIMS;
-    private static Set<String> REQUIRED_CLIENT_ASSERTION_CLAIMS;
 
     static {
         REQUIRED_TOKEN_CLAIMS = new HashSet<>();
@@ -107,8 +106,6 @@ public class TokenServiceImpl implements TokenService {
         REQUIRED_TOKEN_CLAIMS.add("iss");
         REQUIRED_TOKEN_CLAIMS.add("iat");
 
-        REQUIRED_CLIENT_ASSERTION_CLAIMS = new HashSet<>(REQUIRED_TOKEN_CLAIMS);
-        REQUIRED_CLIENT_ASSERTION_CLAIMS.add("jti");
     }
 
 
@@ -162,7 +159,8 @@ public class TokenServiceImpl implements TokenService {
     }
 
     @Override
-    public void verifyClientAssertionToken(String clientId, String jwk, String clientAssertion, List<String> audience) throws EsignetException {
+    public void verifyClientAssertionToken(String clientId, String jwk, String clientAssertion,
+                                           List<String> audience, boolean jtiRequired) throws EsignetException {
         if (clientAssertion == null) {
             throw new EsignetException(ErrorConstants.INVALID_CLIENT);
         }
@@ -177,12 +175,17 @@ public class TokenServiceImpl implements TokenService {
                 throw new EsignetException(ErrorConstants.INVALID_CLIENT);
             }
 
-            NimbusJwtDecoder jwtDecoder = getNimbusJwtDecoderFromJwk(jwk, clientId, audience, maxClockSkew, alg);
+            NimbusJwtDecoder jwtDecoder = getNimbusJwtDecoderFromJwk(jwk, clientId, audience,
+                    maxClockSkew, alg, jtiRequired);
             jwtDecoder.decode(clientAssertion);
             String jti = signedJWT.getJWTClaimsSet().getJWTID();
-            if (uniqueJtiRequired && (jti == null || cacheUtilService.checkAndMarkJti(jti))) {
+            if (jtiRequired && (jti == null || jti.isBlank())) {
+                log.error("Missing jti for client assertion");
+                throw new EsignetException(ErrorConstants.INVALID_CLIENT);
+            }
+            if (jti != null && uniqueJtiRequired && cacheUtilService.checkAndMarkJti(jti)) {
                 log.error("invalid jti {}", jti);
-                throw new EsignetException();
+                throw new EsignetException(ErrorConstants.INVALID_CLIENT);
             }
         } catch (Exception e) {
             log.error("Failed to verify client assertion", e);
@@ -190,7 +193,8 @@ public class TokenServiceImpl implements TokenService {
         }
     }
 
-    private NimbusJwtDecoder getNimbusJwtDecoderFromJwk(String jwkJson, String clientId, List<String> audience, int maxClockSkew, String alg) throws Exception {
+    private NimbusJwtDecoder getNimbusJwtDecoderFromJwk(String jwkJson, String clientId, List<String> audience,
+                                                        int maxClockSkew, String alg, boolean jtiRequired) throws Exception {
 
         JWK parsedJwk = JWK.parse(jwkJson);
         JWKSet jwkSet = new JWKSet(parsedJwk);
@@ -202,7 +206,7 @@ public class TokenServiceImpl implements TokenService {
 
         NimbusJwtDecoder decoder = new NimbusJwtDecoder(jwtProcessor);
 
-        OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
+        List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>(List.of(
                 new JwtTimestampValidator(Duration.ofSeconds(maxClockSkew)),
                 new JwtIssuerValidator(clientId),
                 new JwtClaimValidator<Instant>(JwtClaimNames.IAT, Objects::nonNull),
@@ -210,11 +214,14 @@ public class TokenServiceImpl implements TokenService {
                 new JwtClaimValidator<List<String>>(JwtClaimNames.AUD, aud ->
                         aud != null && aud.stream().anyMatch(audience::contains)
                 ),
-                new JwtClaimValidator<String>(JwtClaimNames.SUB, clientId::equals),
-                new JwtClaimValidator<String>(JwtClaimNames.JTI, jti ->
-                        jti != null && !jti.trim().isEmpty()
-                )
-        );
+                new JwtClaimValidator<String>(JwtClaimNames.SUB, clientId::equals)
+        ));
+        if (jtiRequired) {
+            validators.add(new JwtClaimValidator<String>(JwtClaimNames.JTI,
+                    jti -> jti != null && !jti.trim().isEmpty()));
+        }
+        OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
+                validators.toArray(new OAuth2TokenValidator[0]));
         decoder.setJwtValidator(validator);
         return decoder;
     }

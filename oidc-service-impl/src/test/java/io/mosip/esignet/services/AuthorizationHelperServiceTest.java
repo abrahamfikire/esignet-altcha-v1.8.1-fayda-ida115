@@ -7,6 +7,7 @@ package io.mosip.esignet.services;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.mosip.esignet.altcha.AltchaChallengeService;
 import io.mosip.esignet.api.dto.*;
 import io.mosip.esignet.api.dto.claim.Claims;
 import io.mosip.esignet.api.exception.KycAuthException;
@@ -66,6 +67,9 @@ public class AuthorizationHelperServiceTest {
 
     @Mock
     private CaptchaHelper captchaHelper;
+
+    @Mock
+    private AltchaChallengeService altchaChallengeService;
 
     @Mock
     private Authenticator authenticationWrapper;
@@ -159,6 +163,17 @@ public class AuthorizationHelperServiceTest {
         ReflectionTestUtils.setField(authorizationHelperService, "captchaHelper", captchaHelper);
         Mockito.when(captchaHelper.validateCaptcha(Mockito.anyString())).thenReturn(true);
         authorizationHelperService.validateCaptchaToken("captcha-token");
+    }
+
+    @Test
+    public void validateCaptchaToken_withAltchaProvider_thenUseAltcha() {
+        ReflectionTestUtils.setField(authorizationHelperService, "captchaProvider", "altcha");
+        Mockito.when(altchaChallengeService.verifyPayload("altcha-token")).thenReturn(true);
+
+        authorizationHelperService.validateCaptchaToken("altcha-token");
+
+        Mockito.verify(altchaChallengeService).verifyPayload("altcha-token");
+        Mockito.verifyNoInteractions(captchaHelper);
     }
 
     @Test

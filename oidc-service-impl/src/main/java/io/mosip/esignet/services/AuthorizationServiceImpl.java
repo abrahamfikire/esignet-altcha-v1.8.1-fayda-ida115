@@ -75,6 +75,9 @@ public class AuthorizationServiceImpl implements AuthorizationService {
     @Value("#{'${mosip.esignet.captcha.required}'.split(',')}")
     private List<String> captchaRequired;
 
+    @Value("${mosip.esignet.captcha.provider:legacy}")
+    private String captchaProvider;
+
     @Value("${mosip.esignet.signup-id-token-expire-seconds:60}")
     private int signupIDTokenValidity;
 
@@ -220,7 +223,10 @@ public class AuthorizationServiceImpl implements AuthorizationService {
         if(!CollectionUtils.isEmpty(captchaRequired) &&
                 authRequest.getChallengeList().stream().anyMatch(authChallenge ->
                         captchaRequired.contains(authChallenge.getAuthFactorType().toLowerCase()))) {
-            authorizationHelperService.validateCaptchaToken(authRequest.getCaptchaToken());
+            boolean useAltcha = "altcha".equalsIgnoreCase(captchaProvider)
+                    && authRequest.getChallengeList().stream().allMatch(authChallenge ->
+                    "pwd".equalsIgnoreCase(authChallenge.getAuthFactorType()));
+            authorizationHelperService.validateCaptchaToken(authRequest.getCaptchaToken(), useAltcha);
         }
         OIDCTransaction transaction = authenticate(authRequest, true, httpServletRequest);
         AuthResponseV2 authRespDto = new AuthResponseV2();
