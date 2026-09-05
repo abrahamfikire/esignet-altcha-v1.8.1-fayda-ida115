@@ -12,6 +12,7 @@ import io.mosip.esignet.api.util.ActionStatus;
 import io.mosip.esignet.core.dto.ConsentDetail;
 import io.mosip.esignet.core.dto.UserConsent;
 import io.mosip.esignet.core.dto.UserConsentRequest;
+import io.mosip.esignet.core.exception.EsignetException;
 import io.mosip.esignet.core.spi.ConsentService;
 import io.mosip.esignet.core.util.AuditHelper;
 import io.mosip.esignet.entity.ConsentHistory;
@@ -19,6 +20,7 @@ import io.mosip.esignet.mapper.ConsentMapper;
 import io.mosip.esignet.repository.ConsentHistoryRepository;
 import io.mosip.esignet.repository.ConsentRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -56,9 +58,21 @@ public class ConsentServiceImpl implements ConsentService {
                 findByClientIdAndPsuToken(userConsentRequest.getClientId(),
                         userConsentRequest.getPsuToken());
         if (consentOptional.isPresent()) {
-            ConsentDetail consentDetailDto = consentMapper.toDto( consentOptional.get());
-
-            return Optional.of(consentDetailDto);
+            io.mosip.esignet.entity.ConsentDetail stored = consentOptional.get();
+            try {
+                ConsentDetail consentDetailDto = consentMapper.toDto(stored);
+                if (consentDetailDto != null && consentDetailDto.getClaims() == null
+                        && StringUtils.isNotBlank(stored.getClaims())) {
+                    log.warn("Stored consent claims could not be parsed for clientId={}; treating as absent so consent can be recaptured",
+                            userConsentRequest.getClientId());
+                    return Optional.empty();
+                }
+                return Optional.of(consentDetailDto);
+            } catch (EsignetException e) {
+                log.warn("Stored consent could not be mapped for clientId={}; treating as absent so consent can be recaptured. error={}",
+                        userConsentRequest.getClientId(), e.getErrorCode());
+                return Optional.empty();
+            }
         }
         auditWrapper.logAudit(AuditHelper.getClaimValue(SecurityContextHolder.getContext(), claimName),
                 Action.GET_USER_CONSENT, ActionStatus.SUCCESS,
@@ -69,24 +83,46 @@ public class ConsentServiceImpl implements ConsentService {
     @Override
     @Transactional
     public ConsentDetail saveUserConsent(UserConsent userConsent) {
-        Optional<io.mosip.esignet.entity.ConsentDetail> clientDetailOptional =
-                consentRepository.findByClientIdAndPsuToken(userConsent.getClientId(), userConsent.getPsuToken());
-        if(clientDetailOptional.isPresent()) {
-            consentRepository.deleteByClientIdAndPsuToken(userConsent.getClientId(), userConsent.getPsuToken());
-            consentRepository.flush();
-        }
+        // Do not find+flush a managed ConsentDetail: Hibernate would DELETE WHERE id=?
+        // with a String bind and Fayda Postgres rejects uuid = varchar.
+        log.info("Replacing stored consent via native delete by client_id and psu_token (avoid uuid=varchar id bind)");
+        consentRepository.deleteByClientIdAndPsuToken(userConsent.getClientId(), userConsent.getPsuToken());
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         //convert ConsentRequest to Entity
         ConsentHistory consentHistory = consentMapper.toConsentHistoryEntity(userConsent);
         consentHistory.setId(UUID.randomUUID().toString());
         consentHistory.setCreatedtimes(now);
-        consentHistoryRepository.save(consentHistory);
+        // Hibernate 6 ignores @Convert on @Id, so persist() still binds varchar.
+        consentHistoryRepository.insertNative(
+                consentHistory.getId(),
+                consentHistory.getAcceptedClaims(),
+                consentHistory.getAuthorizationScopes(),
+                consentHistory.getClaims(),
+                consentHistory.getClientId(),
+                consentHistory.getCreatedtimes(),
+                consentHistory.getExpiredtimes(),
+                consentHistory.getHash(),
+                consentHistory.getPermittedScopes(),
+                consentHistory.getPsuToken(),
+                consentHistory.getSignature());
 
         io.mosip.esignet.entity.ConsentDetail consentDetail = consentMapper.toEntity(userConsent);
         consentDetail.setId(UUID.randomUUID().toString());
         consentDetail.setCreatedtimes(now);
+        consentRepository.insertNative(
+                consentDetail.getId(),
+                consentDetail.getAcceptedClaims(),
+                consentDetail.getAuthorizationScopes(),
+                consentDetail.getClaims(),
+                consentDetail.getClientId(),
+                consentDetail.getCreatedtimes(),
+                consentDetail.getExpiredtimes(),
+                consentDetail.getHash(),
+                consentDetail.getPermittedScopes(),
+                consentDetail.getPsuToken(),
+                consentDetail.getSignature());
 
-        ConsentDetail consentDetailDto = consentMapper.toDto(consentRepository.save(consentDetail));
+        ConsentDetail consentDetailDto = consentMapper.toDto(consentDetail);
         auditWrapper.logAudit(AuditHelper.getClaimValue(SecurityContextHolder.getContext(), claimName),
                 Action.SAVE_USER_CONSENT, ActionStatus.SUCCESS,
                 AuditHelper.buildAuditDto(userConsent.getClientId()), null);

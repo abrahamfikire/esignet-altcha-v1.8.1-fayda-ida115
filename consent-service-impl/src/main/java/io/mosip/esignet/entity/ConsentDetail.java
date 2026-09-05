@@ -24,6 +24,7 @@ public class ConsentDetail {
 
     @Id
     @Column(name = "id")
+    @Convert(converter = UuidStringAttributeConverter.class)
     private String id;
 
     @NotNull(message = INVALID_CLIENT_ID)

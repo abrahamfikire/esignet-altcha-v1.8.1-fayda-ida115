@@ -10,7 +10,6 @@ import io.mosip.esignet.api.dto.claim.Claims;
 import io.mosip.esignet.api.spi.AuditPlugin;
 import io.mosip.esignet.core.dto.UserConsent;
 import io.mosip.esignet.core.dto.UserConsentRequest;
-import io.mosip.esignet.core.exception.EsignetException;
 import io.mosip.esignet.entity.ConsentDetail;
 import io.mosip.esignet.entity.ConsentHistory;
 import io.mosip.esignet.mapper.ConsentMapperImpl;
@@ -31,7 +30,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.util.*;
 
-import static io.mosip.esignet.core.constants.ErrorConstants.INVALID_CLAIM;
 import static org.mockito.Mockito.doNothing;
 
 @Slf4j
@@ -85,7 +83,7 @@ public class ConsentServiceImplTest {
     }
 
     @Test
-    public void getUserConsent_withInValidClaimsDetails_thenFail() {
+    public void getUserConsent_withInValidClaimsDetails_thenTreatAsAbsent() {
         ConsentDetail consentDetail = new ConsentDetail();
         consentDetail.setId(UUID.randomUUID().toString());
         consentDetail.setClientId("1234");
@@ -100,12 +98,34 @@ public class ConsentServiceImplTest {
         UserConsentRequest userConsentRequest = new UserConsentRequest();
         userConsentRequest.setClientId("1234");
         userConsentRequest.setPsuToken("psuValue");
-        try {
-            Optional<io.mosip.esignet.core.dto.ConsentDetail> userConsentDto = consentService.getUserConsent(userConsentRequest);
-            Assertions.fail();
-        } catch (EsignetException e) {
-            Assertions.assertTrue(e.getErrorCode().equals(INVALID_CLAIM));
-        }
+        Optional<io.mosip.esignet.core.dto.ConsentDetail> userConsentDto = consentService.getUserConsent(userConsentRequest);
+        Assertions.assertEquals(Optional.empty(), userConsentDto);
+    }
+
+    @Test
+    public void getUserConsent_withLegacyObjectUserinfo_thenPass() {
+        ConsentDetail consentDetail = new ConsentDetail();
+        consentDetail.setId(UUID.randomUUID().toString());
+        consentDetail.setClientId("1234");
+        consentDetail.setCreatedtimes(LocalDateTime.now());
+        consentDetail.setClaims("{\"userinfo\":{\"given_name\":{\"essential\":true},\"email\":{\"essential\":true}},\"id_token\":{}}");
+        consentDetail.setPsuToken("psuValue");
+        consentDetail.setExpiredtimes(LocalDateTime.now());
+
+        Mockito.when(consentRepository.findByClientIdAndPsuToken(Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(Optional.of(consentDetail));
+
+        UserConsentRequest userConsentRequest = new UserConsentRequest();
+        userConsentRequest.setClientId("1234");
+        userConsentRequest.setPsuToken("psuValue");
+
+        Optional<io.mosip.esignet.core.dto.ConsentDetail> userConsentDto = consentService.getUserConsent(userConsentRequest);
+        Assertions.assertTrue(userConsentDto.isPresent());
+        Assertions.assertEquals("1234", userConsentDto.get().getClientId());
+        Assertions.assertNotNull(userConsentDto.get().getClaims());
+        Assertions.assertNotNull(userConsentDto.get().getClaims().getUserinfo());
+        Assertions.assertEquals(1, userConsentDto.get().getClaims().getUserinfo().get("given_name").size());
+        Assertions.assertEquals(true, userConsentDto.get().getClaims().getUserinfo().get("given_name").get(0).get("essential"));
     }
 
     @Test
@@ -160,12 +180,22 @@ public class ConsentServiceImplTest {
         consentDetail.setPsuToken("psuValue");
         consentDetail.setExpiredtimes(LocalDateTime.now());
 
-        Mockito.when(consentRepository.save(Mockito.any())).thenReturn(consentDetail);
-        Mockito.when(consentHistoryRepository.save(Mockito.any())).thenReturn(new ConsentHistory());
-        Mockito.when(consentRepository.findByClientIdAndPsuToken(Mockito.any(), Mockito.any())).thenReturn(Optional.empty());
+        doNothing().when(consentRepository).deleteByClientIdAndPsuToken(Mockito.any(), Mockito.any());
+        doNothing().when(consentHistoryRepository).insertNative(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        doNothing().when(consentRepository).insertNative(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
         io.mosip.esignet.core.dto.ConsentDetail userConsentDtoDetail = consentService.saveUserConsent(userConsent);
         Assertions.assertNotNull(userConsentDtoDetail);
         Assertions.assertEquals("1234", userConsentDtoDetail.getClientId());
+        Mockito.verify(consentHistoryRepository).insertNative(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(consentRepository).insertNative(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
     }
 
@@ -210,13 +240,22 @@ public class ConsentServiceImplTest {
         consentDetail.setPsuToken("psuValue");
         consentDetail.setExpiredtimes(LocalDateTime.now());
 
-        Mockito.when(consentRepository.save(Mockito.any())).thenReturn(consentDetail);
-        Mockito.when(consentHistoryRepository.save(Mockito.any())).thenReturn(new ConsentHistory());
-        Mockito.when(consentRepository.findByClientIdAndPsuToken(Mockito.any(), Mockito.any())).thenReturn(Optional.of(consentDetail));
         doNothing().when(consentRepository).deleteByClientIdAndPsuToken(Mockito.any(), Mockito.any());
+        doNothing().when(consentHistoryRepository).insertNative(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        doNothing().when(consentRepository).insertNative(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
         io.mosip.esignet.core.dto.ConsentDetail userConsentDtoDetail = consentService.saveUserConsent(userConsent);
         Assertions.assertNotNull(userConsentDtoDetail);
         Assertions.assertEquals("1234", userConsentDtoDetail.getClientId());
+        Mockito.verify(consentHistoryRepository).insertNative(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(consentRepository).insertNative(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
     }
 
