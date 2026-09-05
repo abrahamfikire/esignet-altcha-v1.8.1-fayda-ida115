@@ -12,4 +12,6 @@ Do **not** apply it on stock MOSIP 1.8 with IDA **1.2.0.1**. That stack already 
 
 ## Stock MOSIP 1.8 + IDA 1.2.0.1
 
-Build/deploy from branch `feature/esignet-1.8.0-altcha` (repo `esignet-altcha-v1.8.1`). Set Altcha HMAC secrets and `mosip.esignet.captcha.provider=altcha`. Leave this directory unused.
+Use image `abraham555/esignet:1.8.0-altcha` from branch `feature/esignet-1.8.0-altcha`. Leave this directory unused.
+
+Captcha / Redis properties for both clusters: [docs/ALTCHA_DEPLOY.md](../../../docs/ALTCHA_DEPLOY.md).
