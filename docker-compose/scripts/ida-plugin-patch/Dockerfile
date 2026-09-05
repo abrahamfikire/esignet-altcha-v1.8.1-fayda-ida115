@@ -1,4 +1,4 @@
-FROM abraham555/esignet@sha256:246b25f9516ac88df46e59de9f251466ab0adc799606f81e9b854fb4592190aa
+FROM abraham555/esignet:1.8.0-altcha
 
 USER root
 COPY configure_start.sh /home/mosip/configure_start.sh
