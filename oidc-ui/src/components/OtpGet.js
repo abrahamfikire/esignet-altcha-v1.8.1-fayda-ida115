@@ -5,6 +5,11 @@ import { LoadingStates as states } from '../constants/states';
 import { useTranslation } from 'react-i18next';
 import { buttonTypes, configurationKeys } from '../constants/clientConstants';
 import ReCAPTCHA from 'react-google-recaptcha';
+import AltchaWidget from './AltchaWidget';
+import {
+  getCaptchaChallengeUrl,
+  getCaptchaProvider,
+} from '../helpers/captchaConfig';
 import ErrorBanner from '../common/ErrorBanner';
 import langConfigService from '../services/langConfigService';
 import redirectOnError from '../helpers/redirectOnError';
@@ -108,6 +113,8 @@ export default function OtpGet({
     openIDConnectService.getEsignetConfiguration(
       configurationKeys.captchaSiteKey
     ) ?? process.env.REACT_APP_CAPTCHA_SITE_KEY;
+  const captchaProvider = getCaptchaProvider(openIDConnectService);
+  const captchaChallengeUrl = getCaptchaChallengeUrl(openIDConnectService);
 
   const [status, setStatus] = useState({ state: states.LOADED, msg: '' });
   const [errorBanner, setErrorBanner] = useState(null);
@@ -115,6 +122,7 @@ export default function OtpGet({
 
   const [captchaToken, setCaptchaToken] = useState(null);
   const _reCaptchaRef = useRef(null);
+  const [captchaWidgetKey, setCaptchaWidgetKey] = useState(0);
 
   const [currentLoginID, setCurrentLoginID] = useState(null);
   const [countryCode, setCountryCode] = useState(null);
@@ -141,7 +149,7 @@ export default function OtpGet({
 
   const handleCaptchaChange = (value) => {
     setCaptchaToken(value);
-    getCaptchaToken(value);
+    getCaptchaToken?.(value);
   };
 
   function getPropertiesForLoginID(loginID, label) {
@@ -210,9 +218,13 @@ export default function OtpGet({
    * & its token value
    */
   const resetCaptcha = () => {
-    _reCaptchaRef.current.reset();
+    if (captchaProvider === 'altcha') {
+      setCaptchaWidgetKey((key) => key + 1);
+    } else {
+      _reCaptchaRef.current?.reset();
+    }
     setCaptchaToken(null);
-    getCaptchaToken(null);
+    getCaptchaToken?.(null);
   };
 
   const sendOTP = async () => {
@@ -428,12 +440,21 @@ export default function OtpGet({
 
             {showCaptcha && (
               <div className="flex justify-center mt-5 mb-2">
-                <ReCAPTCHA
-                  hl={i18n.language}
-                  ref={_reCaptchaRef}
-                  onChange={handleCaptchaChange}
-                  sitekey={captchaSiteKey}
-                />
+                {captchaProvider === 'altcha' ? (
+                  <AltchaWidget
+                    challengeUrl={captchaChallengeUrl}
+                    language={i18n.language}
+                    onVerified={handleCaptchaChange}
+                    widgetKey={captchaWidgetKey}
+                  />
+                ) : (
+                  <ReCAPTCHA
+                    hl={i18n.language}
+                    ref={_reCaptchaRef}
+                    onChange={handleCaptchaChange}
+                    sitekey={captchaSiteKey}
+                  />
+                )}
               </div>
             )}
 

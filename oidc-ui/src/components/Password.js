@@ -13,7 +13,12 @@ import { LoadingStates as states } from '../constants/states';
 import FormAction from './FormAction';
 import InputWithImage from './InputWithImage';
 import ReCAPTCHA from 'react-google-recaptcha';
+import AltchaWidget from './AltchaWidget';
 import ErrorBanner from '../common/ErrorBanner';
+import {
+  getCaptchaChallengeUrl,
+  getCaptchaProvider,
+} from '../helpers/captchaConfig';
 import langConfigService from '../services/langConfigService';
 import redirectOnError from '../helpers/redirectOnError';
 import LoginIDOptions from './LoginIDOptions';
@@ -231,9 +236,12 @@ export default function Password({
     openIDConnectService.getEsignetConfiguration(
       configurationKeys.captchaSiteKey
     ) ?? process.env.REACT_APP_CAPTCHA_SITE_KEY;
+  const captchaProvider = getCaptchaProvider(openIDConnectService);
+  const captchaChallengeUrl = getCaptchaChallengeUrl(openIDConnectService);
 
   const [captchaToken, setCaptchaToken] = useState(null);
   const _reCaptchaRef = useRef(null);
+  const [captchaWidgetKey, setCaptchaWidgetKey] = useState(0);
   const handleCaptchaChange = (value) => {
     setCaptchaToken(value);
   };
@@ -243,7 +251,11 @@ export default function Password({
    * & its token value
    */
   const resetCaptcha = () => {
-    _reCaptchaRef.current.reset();
+    if (captchaProvider === 'altcha') {
+      setCaptchaWidgetKey((key) => key + 1);
+    } else {
+      _reCaptchaRef.current?.reset();
+    }
     setCaptchaToken(null);
   };
 
@@ -502,13 +514,22 @@ export default function Password({
 
           {showCaptcha && (
             <div className="block password-google-reCaptcha">
-              <ReCAPTCHA
-                hl={i18n.language}
-                ref={_reCaptchaRef}
-                onChange={handleCaptchaChange}
-                sitekey={captchaSiteKey}
-                className="flex place-content-center"
-              />
+              {captchaProvider === 'altcha' ? (
+                <AltchaWidget
+                  challengeUrl={captchaChallengeUrl}
+                  language={i18n.language}
+                  onVerified={handleCaptchaChange}
+                  widgetKey={captchaWidgetKey}
+                />
+              ) : (
+                <ReCAPTCHA
+                  hl={i18n.language}
+                  ref={_reCaptchaRef}
+                  onChange={handleCaptchaChange}
+                  sitekey={captchaSiteKey}
+                  className="flex place-content-center"
+                />
+              )}
             </div>
           )}
 

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import './i18n';
+import './vendor/altcha.js';
 import 'react-tooltip/dist/react-tooltip.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);

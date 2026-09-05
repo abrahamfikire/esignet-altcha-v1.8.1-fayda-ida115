@@ -26,11 +26,7 @@ const TOTP_LENGTH = 6;
 
 const mapTotpErrorCode = (rawCode, digitEnteredAt) => {
   const code = String(rawCode || '').trim();
-  if (
-    code === 'totp_expired' ||
-    code === 'expired' ||
-    /expired/i.test(code)
-  ) {
+  if (code === 'totp_expired' || code === 'expired' || /expired/i.test(code)) {
     return 'totp_expired';
   }
   if (
@@ -275,9 +271,7 @@ export default function Totp({
       showTotpError(errorCode);
     } finally {
       setStatus((prev) =>
-        prev.state === states.LOADING
-          ? { state: states.LOADED, msg: '' }
-          : prev
+        prev.state === states.LOADING ? { state: states.LOADED, msg: '' } : prev
       );
     }
   };
@@ -406,29 +400,28 @@ export default function Totp({
             <LoadingIndicator size="medium" message={status.msg} />
           )}
 
-          {errorBanner !== null && errorBanner.show && status.state !== states.LOADING && (
-            <p
-              className="mt-3 text-sm font-semibold text-center"
-              style={{ color: '#fecaca' }}
-              role="alert"
-              id="totp-inline-error"
-            >
-              {typeof errorBanner.errorCode === 'string' &&
-              errorBanner.errorCode.startsWith('errors.')
-                ? t2(
-                    errorBanner.errorCode.replace(/^errors\./, ''),
-                    {
+          {errorBanner !== null &&
+            errorBanner.show &&
+            status.state !== states.LOADING && (
+              <p
+                className="mt-3 text-sm font-semibold text-center"
+                style={{ color: '#fecaca' }}
+                role="alert"
+                id="totp-inline-error"
+              >
+                {typeof errorBanner.errorCode === 'string' &&
+                errorBanner.errorCode.startsWith('errors.')
+                  ? t2(errorBanner.errorCode.replace(/^errors\./, ''), {
                       defaultValue:
                         errorBanner.mapped === 'totp_expired'
                           ? 'Your Fayda TOTP code has expired. Enter the latest code from your authenticator app.'
                           : errorBanner.mapped === 'totp_not_enrolled'
                             ? 'Fayda TOTP is not set up for this FAN. Tap Register TOTP below to set it up.'
-                          : 'Incorrect Fayda TOTP code. Please try again.',
-                    }
-                  )
-                : errorBanner.errorCode}
-            </p>
-          )}
+                            : 'Incorrect Fayda TOTP code. Please try again.',
+                    })
+                  : errorBanner.errorCode}
+              </p>
+            )}
 
           <div className="mt-5">
             <FormAction

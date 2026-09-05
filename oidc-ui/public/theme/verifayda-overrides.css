@@ -76,14 +76,20 @@ button[id^='login_with_pin'] img {
 
 /* First-time TOTP registration (totp-setup.js) */
 .totp-setup-reg-wrap {
-  margin: 1.25rem 0 0.75rem;
+  margin: 0;
+  padding: 0.15rem 0 0.35rem;
   text-align: center;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
 .totp-first-time-q {
   color: rgba(255, 255, 255, 0.92) !important;
-  font-size: 0.95rem !important;
-  margin: 0 0 0.75rem !important;
+  font-size: 0.9rem !important;
+  margin: 0 0 0.55rem !important;
+  line-height: 1.35;
 }
 
 .totp-register-btn {
@@ -93,11 +99,30 @@ button[id^='login_with_pin'] img {
   color: #ffffff !important;
   cursor: pointer;
   font-size: 0.9rem !important;
-  padding: 0.45rem 1.25rem !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  height: 2.35rem !important;
+  padding: 0 1.35rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  min-width: 9.5rem;
+  margin: 0 auto !important;
+  box-shadow: none !important;
+  outline: none !important;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .totp-register-btn:hover {
   background: rgba(255, 255, 255, 0.08) !important;
+}
+
+#vf-totp-reg-host {
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
 }
 
 .totp-modal-fan-step {

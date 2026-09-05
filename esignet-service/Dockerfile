@@ -76,7 +76,7 @@ ENV loader_path_env=${loader_path}
 
 ADD configure_start.sh configure_start.sh
 
-COPY ./target/esignet-service-*.jar esignet-service.jar
+COPY ./target/esignet-service-1.8.0.jar esignet-service.jar
 
 # install packages and create user
 RUN apt-get -y update \

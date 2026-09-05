@@ -23,6 +23,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.util.MultiValueMap;
 import org.springframework.validation.FieldError;
@@ -175,7 +176,8 @@ public class ExceptionHandlerAdvice extends ResponseEntityExceptionHandler imple
             String errorCode = exception.getErrorCode();
             return new ResponseEntity<ResponseWrapper>(getResponseWrapper(errorCode, getMessage(errorCode)), HttpStatus.OK);
         }
-        if(ex instanceof AuthenticationCredentialsNotFoundException) {
+        if(ex instanceof AuthenticationCredentialsNotFoundException
+                || ex instanceof InsufficientAuthenticationException) {
             return new ResponseEntity<ResponseWrapper>(getResponseWrapper(HttpStatus.UNAUTHORIZED.name(),
                     HttpStatus.UNAUTHORIZED.getReasonPhrase()), HttpStatus.UNAUTHORIZED);
         }

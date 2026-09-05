@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -94,16 +95,10 @@ public class SecurityConfig {
         // (e.g. /v1/esignet/oauth/**) match the full request URI. Default MVC
         // matchers treat patterns as servlet-relative and CSRF would still apply
         // to token exchange (server-to-server POSTs with no XSRF cookie → 403).
-        RequestMatcher[] csrfIgnoreMatchers = Arrays.stream(ignoreCsrfCheckUrls)
-                .map(String::trim)
-                .filter(StringUtils::hasText)
-                .map(AntPathRequestMatcher::new)
-                .toArray(RequestMatcher[]::new);
-        RequestMatcher[] authIgnoreMatchers = Arrays.stream(ignoreAuthUrls)
-                .map(String::trim)
-                .filter(StringUtils::hasText)
-                .map(AntPathRequestMatcher::new)
-                .toArray(RequestMatcher[]::new);
+        // Also register the servlet-prefixed form so MOSIP-style patterns like
+        // /actuator/** still match /v1/esignet/actuator/health.
+        RequestMatcher[] csrfIgnoreMatchers = toAntMatchers(ignoreCsrfCheckUrls);
+        RequestMatcher[] authIgnoreMatchers = toAntMatchers(ignoreAuthUrls);
 
         http.cors(withDefaults())
                 .csrf(csrf -> csrf
@@ -161,5 +156,23 @@ public class SecurityConfig {
             //We currently donot have a way to set 2 different authentication providers in spring security.
             webSecurity.ignoring().requestMatchers(servletPath + "/oidc/userinfo", "/oidc/userinfo");
         };
+    }
+
+    private RequestMatcher[] toAntMatchers(String[] patterns) {
+        return Arrays.stream(patterns)
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .flatMap(this::withServletPath)
+                .distinct()
+                .map(AntPathRequestMatcher::new)
+                .toArray(RequestMatcher[]::new);
+    }
+
+    private Stream<String> withServletPath(String pattern) {
+        if (!StringUtils.hasText(servletPath) || "/".equals(servletPath)
+                || pattern.startsWith(servletPath) || !pattern.startsWith("/")) {
+            return Stream.of(pattern);
+        }
+        return Stream.of(pattern, servletPath + pattern);
     }
 }

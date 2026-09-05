@@ -92,6 +92,8 @@ const configurationKeys = {
   sendOtpChannels: 'send.otp.channels', //comma separated list of otp channels.
   captchaEnableComponents: 'captcha.enable', //comma separated list of components where captcha needs to be shown
   captchaSiteKey: 'captcha.sitekey', //site key for ReCAPTCHA
+  captchaProvider: 'captcha.provider',
+  captchaChallengeUrl: 'captcha.challengeUrl',
 
   linkedTransactionExpireInSecs: 'linked-transaction-expire-in-secs',
   qrCodeBufferInSecs: 'wallet.qr-code-buffer-in-secs',

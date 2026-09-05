@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.mosip.esignet.api.dto.AuthChallenge;
 import io.mosip.esignet.api.dto.claim.ClaimDetail;
 import io.mosip.esignet.api.dto.claim.ClaimsV2;
+import io.mosip.esignet.altcha.AltchaChallengeService;
 import io.mosip.esignet.api.spi.AuditPlugin;
 import io.mosip.esignet.api.util.ConsentAction;
 import io.mosip.esignet.api.util.KBIFormHelperService;
@@ -75,6 +76,9 @@ public class AuthorizationControllerTest {
 
     @MockBean
     AuditPlugin auditWrapper;
+
+    @MockBean
+    AltchaChallengeService altchaChallengeService;
 
     @MockBean
     CacheUtilService cacheUtilService;

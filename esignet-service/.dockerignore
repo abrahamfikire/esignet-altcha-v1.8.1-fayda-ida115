@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+*.iml
+src/test
+README.md
+
+target/*
+!target/esignet-service-*.jar
+target/*-javadoc.jar
+target/*-sources.jar
+target/*.original
